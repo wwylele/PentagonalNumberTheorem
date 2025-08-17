@@ -350,6 +350,22 @@ theorem List.updateLast_eq {α : Type*} (l : List α) (f : α → α) (h : l ≠
   | x :: xs => by simp [updateLast]
 
 @[simp]
+theorem List.updateLast_eq_nil_iff {α : Type*} (l : List α) (f : α → α) :
+    l.updateLast f = [] ↔ l = [] := by
+  constructor
+  · intro h
+    contrapose! h
+    simp [h]
+  · intro h
+    simp [h]
+
+@[simp]
+theorem List.getLast_updateLast {α : Type*} (l : List α) (f : α → α) (h : l ≠ []) :
+    (l.updateLast f).getLast ((List.updateLast_eq_nil_iff _ _).ne.mpr h) = f (l.getLast h) := by
+  rw [List.getLast_eq_getElem]
+  simp [h]
+
+@[simp]
 theorem List.length_updateLast {α : Type*} (l : List α) (f : α → α) :
     (l.updateLast f).length = l.length :=
   match l with
@@ -796,13 +812,9 @@ theorem up_size (hn : 0 < n) (x : FerrersDiagram n) :
   )]
   rw [Nat.sub_add_cancel (getLast_delta_le_n hn x)]
 
-theorem up_getLast_lt (hn : 0 < n) (x : FerrersDiagram n)
+theorem up_getLast_lt' (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn) (hpospen : ¬ x.IsPosPentagonal hn) :
-    x.delta.getLast (x.delta_ne_nil hn) - 1 < (x.takeLast hn).delta.length := by
-  apply Nat.sub_one_lt_of_le (List.forall_iff_forall_mem.mp x.delta_pos _ (by simp))
-  rw [length_takeLast]
-  apply Nat.le_sub_one_of_lt
-
+    x.delta.getLast (x.delta_ne_nil hn) < x.delta.length := by
   rw [IsToDown, not_lt] at hdown
   have hdiag : x.diagSize + 1 ≤ x.delta.length + 1 := by
     unfold diagSize
@@ -832,6 +844,14 @@ theorem up_getLast_lt (hn : 0 < n) (x : FerrersDiagram n)
   obtain hwhat := h.trans_lt hlt
   simp at hwhat
 
+theorem up_getLast_lt (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn) (hpospen : ¬ x.IsPosPentagonal hn) :
+    x.delta.getLast (x.delta_ne_nil hn) - 1 < (x.takeLast hn).delta.length := by
+  apply Nat.sub_one_lt_of_le (List.forall_iff_forall_mem.mp x.delta_pos _ (by simp))
+  rw [length_takeLast]
+  apply Nat.le_sub_one_of_lt
+  apply x.up_getLast_lt' hn hdown hpospen
+
 def up (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) : FerrersDiagram n := by
@@ -856,12 +876,31 @@ theorem delta_up (hn : 0 < n) (x : FerrersDiagram n)
     · simp
   simp [putDiag, takeLast]
 
+theorem one_lt_length (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) : 1 < x.delta.length := by
+  by_contra!
+  have h1' : x.delta.length = 1 := by
+    apply le_antisymm this
+    apply Nat.one_le_of_lt
+    apply List.length_pos_iff.mpr (x.delta_ne_nil hn)
+  obtain ⟨a, ha⟩ := List.length_eq_one_iff.mp h1'
+  have ha1 : a ≠ 1 := by simpa [IsPosPentagonal, ha] using hpospen
+  have ha2 : 2 ≤ a := by
+    contrapose! ha1
+    apply le_antisymm
+    · exact Nat.le_of_lt_succ ha1
+    · apply List.forall_iff_forall_mem.mp x.delta_pos
+      simp [ha]
+  have hdiag : a ≤ x.diagSize + 1 := by simpa [IsToDown, ha] using hdown
+  have hdiag2 : 2 ≤ x.diagSize + 1 := ha2.trans hdiag
+  simp [diagSize, ha, List.lengthWhile, ha1] at hdiag2
+
 theorem diagSize_up (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) :
     (x.up hn hdown hpospen).diagSize = x.delta.getLast (x.delta_ne_nil hn) - 1 := by
   simp_rw [diagSize, delta_up]
-  simp only [IsToDown, not_lt] at hdown
   have hdiagle : x.diagSize ≤ x.delta.length := by
     unfold diagSize
     exact List.lengthWhile_le_length _ x.delta
@@ -879,16 +918,8 @@ theorem diagSize_up (hn : 0 < n) (x : FerrersDiagram n)
         simp
       rw [h1']
       suffices 1 < x.delta.length by simpa
-      contrapose! hpospen with hthis
-      have h1'' : x.delta.length = 1 := by
-        apply le_antisymm hthis
-        apply Nat.one_le_of_lt
-        apply List.ne_nil_iff_length_pos.mp
-        exact x.delta_ne_nil hn
-      constructor
-      · rw [h1', h1'']
-      · intro i hi
-        simp [h1''] at hi
+      exact x.one_lt_length hn hdown hpospen
+    simp only [IsToDown, not_lt] at hdown
     obtain heq | hlt := eq_or_lt_of_le <| Nat.lt_iff_add_one_le.mp hlt
     · apply lt_of_le_of_ne (heq ▸ hdown)
       contrapose! hpospen with heq'
@@ -901,6 +932,7 @@ theorem diagSize_up (hn : 0 < n) (x : FerrersDiagram n)
         rfl
     apply hdown.trans_lt hlt
   )]
+  simp only [IsToDown, not_lt] at hdown
   constructor
   · intro i hi
     simp_rw [putDiagFun, List.getElem_set_ne (hi.ne.symm)]
@@ -943,14 +975,144 @@ theorem diagSize_up (hn : 0 < n) (x : FerrersDiagram n)
     apply List.forall_iff_forall_mem.mp (x.takeLast hn).delta_pos
     simp [takeLast]
 
+theorem getLast_up (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    x.delta.getLast (x.delta_ne_nil hn) <
+    (x.up hn hdown hpospen).delta.getLast ((x.up hn hdown hpospen).delta_ne_nil hn) := by
+  simp_rw [List.getLast_eq_getElem ((x.up hn hdown hpospen).delta_ne_nil hn)]
+  simp_rw [delta_up]
+  simp_rw [putDiagFun]
+
+  rw [List.getElem_set]
+
+  have h1 : 1 < x.delta.length := x.one_lt_length hn hdown hpospen
+
+  have htake : List.take (x.delta.length - 1) x.delta ≠ [] := by
+    suffices x.delta.length - 1 ≠ 0 ∧ x.delta ≠ [] by simpa
+    grind
+
+  have hh : x.delta.getLast (x.delta_ne_nil hn) <
+      (takeLastFun x.delta (x.delta_ne_nil hn))[x.delta.length - 1 - 1]'(by simpa using h1) := by
+    simp only [takeLastFun]
+    have hl : x.delta.length - 1 = (List.take (x.delta.length - 1) x.delta).length := by simp
+    have hlast :
+      ((List.take (x.delta.length - 1) x.delta).updateLast
+        (· + x.delta.getLast (x.delta_ne_nil hn)))[x.delta.length - 1 - 1]'(by simpa using h1) =
+        ((List.take (x.delta.length - 1) x.delta).updateLast
+        (· + x.delta.getLast (x.delta_ne_nil hn))).getLast
+        (by simpa using htake) := by
+      convert (List.getLast_eq_getElem _).symm
+      simp
+    rw [hlast]
+    rw [List.getLast_updateLast _ _ htake]
+    simp only [lt_add_iff_pos_left, gt_iff_lt]
+    apply List.forall_iff_forall_mem.mp x.delta_pos
+    exact List.mem_of_mem_take (List.getLast_mem _)
+
+  split_ifs with h
+  · have : x.delta.getLast (x.delta_ne_nil hn) - 1 = x.delta.length - 1 - 1 := by
+      simpa [takeLastFun] using h
+    simp_rw [this]
+    apply hh.trans_le
+    simp
+  · simpa using hh
+
 theorem up_isToDown (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) :
     (x.up hn hdown hpospen).IsToDown hn := by
   unfold IsToDown
+  rw [diagSize_up]
+  rw [Nat.sub_add_cancel (by
+    apply Nat.one_le_of_lt
+    apply List.forall_iff_forall_mem.mp x.delta_pos
+    simp
+  )]
+  apply getLast_up
 
+theorem length_up (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    (x.up hn hdown hpospen).delta.length = x.delta.length - 1 := by
+  simp [delta_up]
 
-  sorry
+theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    ¬ (x.up hn hdown hpospen).IsNegPentagonal hn := by
+
+  rw [IsNegPentagonal, and_comm, not_and]
+  intro h
+  rw [length_up,
+    Nat.sub_add_cancel (Nat.one_le_of_lt <| List.length_pos_iff.mpr (x.delta_ne_nil hn))]
+  by_contra! hgetlast
+  simp_rw [delta_up, putDiagFun] at h
+  simp only [List.length_set, List.length_updateLast, List.length_take, tsub_le_iff_right,
+    le_add_iff_nonneg_right, zero_le, inf_of_le_left] at h
+  have hsetlast : x.delta.length - 1 ≤ x.delta.getLast (x.delta_ne_nil hn) := by
+    by_contra! hlast
+    specialize h (x.delta.getLast (x.delta_ne_nil hn) - 1) (by
+      refine Nat.sub_lt_sub_right ?_ hlast
+      apply List.forall_iff_forall_mem.mp x.delta_pos
+      simp
+      )
+    simp only [List.getElem_set_self, Nat.add_eq_right] at h
+    contrapose! h
+    apply Nat.ne_zero_of_lt
+    apply List.forall_iff_forall_mem.mp (x.takeLast hn).delta_pos
+    simp [takeLast]
+  have hsetlast' : x.delta.length - 1 = x.delta.getLast (x.delta_ne_nil hn) := by
+    apply le_antisymm hsetlast
+    apply Nat.le_sub_one_of_lt
+    apply x.up_getLast_lt' hn hdown hpospen
+  have hll : x.delta.length = x.delta.getLast (x.delta_ne_nil hn)  + 1 := by
+    refine Nat.eq_add_of_sub_eq ?_ hsetlast'
+    apply Nat.one_le_of_lt
+    apply List.length_pos_iff.mpr (x.delta_ne_nil hn)
+  rw [hll] at hgetlast
+  simp_rw [delta_up, putDiagFun] at hgetlast
+  conv at hgetlast =>
+    left
+    rw [List.getLast_eq_getElem]
+  simp only [List.length_set, List.length_updateLast, List.length_take, tsub_le_iff_right,
+    le_add_iff_nonneg_right, zero_le, inf_of_le_left] at hgetlast
+  simp_rw [← hsetlast'] at hgetlast
+
+  have hgetlast' :
+      (takeLastFun x.delta (x.delta_ne_nil hn))[x.delta.length - 1 - 1]'(by
+      simpa [takeLastFun] using x.one_lt_length hn hdown hpospen) =
+      x.delta.length - 1 := by
+    simpa using hgetlast
+  simp [takeLastFun] at hgetlast'
+
+  have hl : x.delta.length - 1 =
+      ((List.take (x.delta.length - 1) x.delta).updateLast
+      (· + x.delta.getLast (x.delta_ne_nil hn))).length := by simp
+
+  have he : ((List.take (x.delta.length - 1) x.delta).updateLast
+      (· + x.delta.getLast (x.delta_ne_nil hn))) ≠ [] := by
+    suffices x.delta.length - 1 ≠ 0 by
+      simpa [x.delta_ne_nil hn]
+    apply ne_of_gt
+    simpa using x.one_lt_length hn hdown hpospen
+
+  conv at hgetlast' in x.delta.length - 1 - 1 =>
+    rw [hl]
+  rw [← List.getLast_eq_getElem he] at hgetlast'
+  rw [List.getLast_updateLast _ _ (by simpa using he)] at hgetlast'
+
+  have hwhat : (List.take (x.delta.length - 1) x.delta).getLast (by simpa using he) = 0 := by
+    simpa [← hsetlast'] using hgetlast'
+
+  rw [List.getLast_take] at hwhat
+  rw [List.getElem?_eq_getElem (by grind)] at hwhat
+
+  have hwhat' : x.delta[x.delta.length - 1 - 1] = 0 := by simpa using hwhat
+  have hwhat'' : 0 < x.delta[x.delta.length - 1 - 1] := by
+    apply List.forall_iff_forall_mem.mp x.delta_pos
+    simp
+  simp [hwhat'] at hwhat''
 
 theorem takeLastFun_putLastFun (delta : List ℕ) (i : ℕ) (hdelta : delta ≠ [])
     (h : i + 1 ≤ delta.getLast hdelta) :
