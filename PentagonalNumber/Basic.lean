@@ -571,6 +571,10 @@ theorem diagSize_putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
 def IsToDown (hn : 0 < n) (x : FerrersDiagram n) :=
   x.diagSize + 1 < x.delta.getLast (x.delta_ne_nil hn)
 
+instance (hn : 0 < n) (x : FerrersDiagram n) : Decidable (x.IsToDown hn) := by
+  unfold IsToDown
+  infer_instance
+
 theorem pred_cast (p : (n : ℕ) → (0 < n) → (FerrersDiagram n) → Prop)
     (hn : 0 < n) {m : ℕ} (x : FerrersDiagram m)
     (h : m = n) :
@@ -700,12 +704,22 @@ theorem down_notPosPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   intro h
   rw [getLast_down, length_down]
   by_contra!
+  obtain hlt := x.diagSize_lt hn hdown
   simp only [Nat.add_right_cancel_iff] at this
-  obtain h1 := List.lengthWhile_eq_length_iff.mp this
-  have hlast: x.delta.getLast (x.delta_ne_nil hn) = 1 :=
-    (List.forall_iff_forall_mem.mp h1) _ (by simp)
-  unfold IsToDown at hdown
-  simp [hlast] at hdown
+  simp [this] at hlt
+
+theorem down_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : x.IsToDown hn)
+    (hnegpen : ¬ x.IsNegPentagonal hn) :
+    ¬ (x.down hn hdown hnegpen).IsNegPentagonal hn := by
+  unfold IsNegPentagonal
+  rw [and_comm, not_and]
+  intro h
+  rw [getLast_down, length_down]
+  by_contra!
+  obtain hlt := x.diagSize_lt hn hdown
+  simp only [Nat.add_right_cancel_iff] at this
+  simp [this] at hlt
 
 abbrev takeLastFun (delta : List ℕ) (h : delta ≠ []) :=
   (delta.take (delta.length - 1)).updateLast (· + delta.getLast h)
@@ -1037,13 +1051,13 @@ theorem length_up (hn : 0 < n) (x : FerrersDiagram n)
     (x.up hn hdown hpospen).delta.length = x.delta.length - 1 := by
   simp [delta_up]
 
-theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+theorem up_notPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
-    (hpospen : ¬ x.IsPosPentagonal hn) :
-    ¬ (x.up hn hdown hpospen).IsNegPentagonal hn := by
-
-  rw [IsNegPentagonal, and_comm, not_and]
-  intro h
+    (hpospen : ¬ x.IsPosPentagonal hn)
+    (h : ∀ (i : ℕ) (h : i < (up hn x hdown hpospen).delta.length - 1),
+      (up hn x hdown hpospen).delta[i] = 1) :
+    (up hn x hdown hpospen).delta.length + 1 <
+    (up hn x hdown hpospen).delta.getLast (delta_ne_nil hn (up hn x hdown hpospen)) := by
   rw [length_up,
     Nat.sub_add_cancel (Nat.one_le_of_lt <| List.length_pos_iff.mpr (x.delta_ne_nil hn))]
   by_contra! hgetlast
@@ -1081,7 +1095,7 @@ theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
 
   have hgetlast' :
       (takeLastFun x.delta (x.delta_ne_nil hn))[x.delta.length - 1 - 1]'(by
-      simpa [takeLastFun] using x.one_lt_length hn hdown hpospen) =
+      simpa [takeLastFun] using x.one_lt_length hn hdown hpospen) ≤
       x.delta.length - 1 := by
     simpa using hgetlast
   simp [takeLastFun] at hgetlast'
@@ -1114,12 +1128,50 @@ theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     simp
   simp [hwhat'] at hwhat''
 
+theorem up_notPosPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    ¬ (x.up hn hdown hpospen).IsPosPentagonal hn := by
+  rw [IsPosPentagonal, and_comm, not_and]
+  intro h
+  obtain hnot := x.up_notPentagonal hn hdown hpospen h
+  contrapose! hnot
+  simp [hnot]
+
+theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    ¬ (x.up hn hdown hpospen).IsNegPentagonal hn := by
+
+  rw [IsNegPentagonal, and_comm, not_and]
+  intro h
+  exact (x.up_notPentagonal hn hdown hpospen h).ne.symm
+
 theorem takeLastFun_putLastFun (delta : List ℕ) (i : ℕ) (hdelta : delta ≠ [])
     (h : i + 1 ≤ delta.getLast hdelta) :
     takeLastFun (putLastFun delta i) (by simp [putLastFun]) = delta := by
-  simp [takeLastFun, putLastFun]
+  suffices delta.updateLast ((fun x ↦ x + (i + 1)) ∘ fun x ↦ x - (i + 1)) = delta by
+    simpa [takeLastFun, putLastFun]
   apply List.updateLast_eq_self _ _ hdelta
   simp [h]
+
+theorem putLastFun_takeLastFun (delta : List ℕ)
+    (hdelta : delta ≠ []) (hpos : delta.Forall (0 < ·)) :
+    putLastFun (takeLastFun delta (hdelta)) (delta.getLast hdelta - 1) = delta := by
+  simp [takeLastFun, putLastFun]
+  have hcancel : delta.getLast hdelta - 1 + 1 = delta.getLast hdelta :=
+    Nat.sub_add_cancel (Nat.one_le_of_lt (
+      List.forall_iff_forall_mem.mp hpos _ (by simp)))
+  simp_rw [hcancel]
+  have hf : (fun x ↦ x - delta.getLast hdelta) ∘
+      (fun x ↦ x + delta.getLast hdelta) = id := by
+    ext x
+    simp
+  simp [hf]
+
+theorem takeDiagFun_putDiagFun (delta : List ℕ) (i : ℕ) (hi : i < delta.length) :
+    takeDiagFun (putDiagFun delta i hi) i (by simpa using hi) = delta := by
+  simp [takeDiagFun, putDiagFun]
 
 theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
@@ -1148,5 +1200,113 @@ theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
     simp
 
   simp [h3]
+
+theorem down_up (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    (x.up hn hdown hpospen).down hn (x.up_isToDown hn hdown hpospen)
+    (x.up_notNegPentagonal hn hdown hpospen) = x := by
+  ext1
+  simp_rw [delta_down, delta_up]
+  simp_rw [diagSize_up]
+  rw [takeDiagFun_putDiagFun]
+  rw [putLastFun_takeLastFun _ _ x.delta_pos]
+
+theorem parity_up (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : ¬ x.IsToDown hn)
+    (hpospen : ¬ x.IsPosPentagonal hn) :
+    Even (x.up hn hdown hpospen).delta.length ↔ ¬ Even x.delta.length := by
+  rw [length_up]
+  rw [Nat.even_sub' (Nat.one_le_of_lt (List.length_pos_iff.mpr (x.delta_ne_nil hn)))]
+  simp
+
+theorem parity_down (hn : 0 < n) (x : FerrersDiagram n)
+    (hdown : x.IsToDown hn)
+    (hnegpen : ¬ x.IsNegPentagonal hn) :
+    Even (x.down hn hdown hnegpen).delta.length ↔ ¬ Even x.delta.length := by
+  rw [length_down]
+  rw [Nat.even_add']
+  simp
+
+def bij (hn : 0 < n) (x : FerrersDiagram n)
+    (hpospen : ¬ x.IsPosPentagonal hn) (hnegpen : ¬ x.IsNegPentagonal hn) :
+    FerrersDiagram n :=
+  if hdown : x.IsToDown hn then
+    x.down hn hdown hnegpen
+  else
+    x.up hn hdown hpospen
+
+theorem bij_notPosPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hpospen : ¬ x.IsPosPentagonal hn) (hnegpen : ¬ x.IsNegPentagonal hn) :
+    ¬ (x.bij hn hpospen hnegpen).IsPosPentagonal hn := by
+  unfold bij
+  split_ifs with hdown
+  · apply down_notPosPentagonal
+  · apply up_notPosPentagonal
+
+theorem bij_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
+    (hpospen : ¬ x.IsPosPentagonal hn) (hnegpen : ¬ x.IsNegPentagonal hn) :
+    ¬ (x.bij hn hpospen hnegpen).IsNegPentagonal hn := by
+  unfold bij
+  split_ifs with hdown
+  · apply down_notNegPentagonal
+  · apply up_notNegPentagonal
+
+abbrev NpFerrers (hn : 0 < n) :=
+  {x : FerrersDiagram n // ¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn}
+
+abbrev bijNp {hn : 0 < n} (x : NpFerrers hn) : NpFerrers hn :=
+  ⟨x.val.bij hn x.prop.1 x.prop.2, by apply bij_notPosPentagonal, by apply bij_notNegPentagonal⟩
+
+@[simp]
+theorem bijNp_bijNp {hn : 0 < n} (x : NpFerrers hn) : bijNp (bijNp x) = x := by
+  apply Subtype.ext_val
+  simp only [bij]
+  split_ifs with hdown hdown2 hdown2
+  · exact False.elim <| (x.val.down_notToDown hn hdown _) hdown2
+  · apply up_down
+  · apply down_up
+  · exact False.elim <| hdown2 (x.val.up_isToDown hn hdown _)
+
+theorem parity_bijNp {hn : 0 < n} (x : NpFerrers hn) :
+    Even (bijNp x).val.delta.length ↔ ¬ Even x.val.delta.length := by
+  simp only [bij]
+  split_ifs with hdown
+  · apply parity_down
+  · apply parity_up
+
+abbrev NpEven (hn : 0 < n) := {x : NpFerrers hn | Even x.val.delta.length}
+abbrev NpOdd (hn : 0 < n) := {x : NpFerrers hn | ¬ Even x.val.delta.length}
+
+theorem NpEven_eq (hn : 0 < n) : NpEven hn =
+  {x : Subtype (fun x ↦ ¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn) |
+    x.val ∈ {x : FerrersDiagram n | Even x.delta.length}} := rfl
+
+theorem NpOdd_eq (hn : 0 < n) : NpOdd hn =
+  {x : Subtype (fun x ↦ ¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn) |
+    x.val ∈ {x : FerrersDiagram n | ¬ Even x.delta.length}} := rfl
+
+theorem NpFerrers_card_eq (hn : 0 < n) : (NpEven hn).ncard = (NpOdd hn).ncard := by
+  apply Set.ncard_congr (fun x _ ↦ bijNp x)
+  · intro x h
+    exact (parity_bijNp x).not.mpr (by simpa using h)
+  · intro x y hx hy h
+    apply_fun bijNp at h
+    simpa using h
+  · intro x h
+    use bijNp x
+    constructor
+    · simp
+    · exact (parity_bijNp x).mpr h
+
+theorem card_eq (hn : 0 < n) :
+    {x : FerrersDiagram n |
+      (¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn) ∧ Even x.delta.length}.ncard =
+    {x : FerrersDiagram n |
+      (¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length}.ncard := by
+  convert NpFerrers_card_eq hn
+  · rw [NpEven_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
+  · rw [NpOdd_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
+
 
 end FerrersDiagram
