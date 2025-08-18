@@ -403,6 +403,7 @@ structure FerrersDiagram (n : ℕ) where
   delta : List ℕ
   delta_pos : delta.Forall (0 < ·)
   delta_sum : ((delta.zipIdx 1).map fun p ↦ p.1 * p.2).sum = n
+deriving Repr
 
 namespace FerrersDiagram
 variable {n : ℕ}
@@ -1307,6 +1308,243 @@ theorem card_eq (hn : 0 < n) :
   convert NpFerrers_card_eq hn
   · rw [NpEven_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
   · rw [NpOdd_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
+
+def foldDelta : List ℕ → List ℕ
+| [] => []
+| x :: xs => match foldDelta xs with
+  | [] => [x]
+  | x' :: xs' => (x' + x) :: x' :: xs'
+
+@[simp]
+theorem foldDelta_eq_nil {l : List ℕ} : foldDelta l = [] ↔ l = [] :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  simp only [foldDelta, reduceCtorEq, iff_false]
+  split <;> simp
+
+theorem foldDelta_pos_of_pos {l : List ℕ} (hpos : ∀ a ∈ l, 0 < a) :
+    ∀ a ∈ foldDelta l, 0 < a :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil =>
+    simpa [foldDelta_eq_nil.mp h] using hpos
+  | cons x' xs' =>
+    simp only
+    intro a ha
+    simp_rw [List.mem_cons] at hpos
+    rw [List.mem_cons, ← h] at ha
+    obtain h | h := ha
+    · have hx : 0 < x :=  hpos x (Or.inl rfl)
+      simp [h, hx]
+    · apply foldDelta_pos_of_pos (fun a ha ↦ hpos a (Or.inr ha)) _ h
+
+theorem head_foldDelta (l : List ℕ) :
+    (foldDelta l).headI = l.sum :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil => simp [foldDelta_eq_nil.mp h]
+  | cons x' xs' =>
+    simp only
+    rw [List.sum_cons, ← head_foldDelta, h]
+    simp
+    ring
+
+theorem sum_foldDelta (l : List ℕ) :
+    (foldDelta l).sum = ((l.zipIdx 1).map fun p ↦ p.1 * p.2).sum :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil => simp [foldDelta_eq_nil.mp h]
+  | cons x' xs' =>
+    simp only
+    rw [List.sum_cons, ← h, sum_foldDelta, List.zipIdx_cons, List.map_cons, List.sum_cons]
+    rw [mul_one]
+    rw [add_comm x' x, add_assoc]
+    rw [Nat.add_left_cancel_iff]
+    nth_rw 2 [List.zipIdx_succ]
+    simp_rw [List.map_map]
+    have : (fun x ↦ x.1 * x.2) ∘ (fun (x : ℕ × ℕ) ↦ (x.1, x.2 + 1)) =
+        fun x ↦ x.1 + x.1 * (x.2) := by
+      ext x
+      simp
+      ring
+    rw [this]
+    rw [List.sum_map_add]
+    suffices x' = xs.sum by simpa
+    rw [← head_foldDelta]
+    simp [h]
+
+theorem foldDelta_sorted (l : List ℕ) : (foldDelta l).Sorted (· ≥ ·) :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil => simp
+  | cons x' xs' =>
+    simp only
+    apply List.Sorted.cons (by simp)
+    rw [← h]
+    apply foldDelta_sorted
+
+theorem foldDelta_sorted_of_pos {l : List ℕ} (hpos : l.Forall (0 < ·)) :
+    (foldDelta l).Sorted (· > ·) :=
+match l with
+| [] => by simp [foldDelta]
+| x :: xs => by
+  rw [List.forall_cons] at hpos
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil => simp
+  | cons x' xs' =>
+    simp only
+    apply List.Sorted.cons (by simpa using hpos.1)
+    rw [← h]
+    apply foldDelta_sorted_of_pos hpos.2
+
+@[simp]
+theorem mergeSort_foldDelta (l : List ℕ) :
+    (foldDelta l).mergeSort (· ≥ ·) = foldDelta l := by
+  apply List.mergeSort_eq_self
+  apply foldDelta_sorted
+
+def unfoldDelta : List ℕ → List ℕ
+| [] => []
+| [x] => [x]
+| x :: y :: xs => (x - y) :: unfoldDelta (y :: xs)
+
+theorem unfoldDelta_pos_of_sorted {l : List ℕ} (hsort : l.Sorted (· > ·))
+    (hpos : l.Forall (0 < ·)) :
+    (unfoldDelta l).Forall (0 < ·) :=
+match l with
+| [] => by simp [unfoldDelta]
+| [x] => by simpa [unfoldDelta] using hpos
+| x :: y :: xs => by
+  rw [unfoldDelta, List.forall_cons]
+  rw [List.sorted_cons_cons] at hsort
+  rw [List.forall_cons] at hpos
+  constructor
+  · exact Nat.sub_pos_of_lt hsort.1
+  · exact unfoldDelta_pos_of_sorted hsort.2 hpos.2
+
+theorem sum_unfoldDelta' {l : List ℕ} (hsort : l.Sorted (· ≥ ·)) :
+    (unfoldDelta l).sum = l.headI :=
+match l with
+| [] | [x] => by simp [unfoldDelta]
+| x :: y :: xs => by
+  rw [List.sorted_cons_cons] at hsort
+  rw [unfoldDelta, List.sum_cons, sum_unfoldDelta' hsort.2]
+  suffices x - y + y = x by simpa
+  refine Nat.sub_add_cancel hsort.1
+
+theorem sum_unfoldDelta {l : List ℕ} (hsort : l.Sorted (· ≥ ·)) :
+    (((unfoldDelta l).zipIdx 1).map fun p ↦ p.1 * p.2).sum = l.sum :=
+match l with
+| [] | [x] => by simp [unfoldDelta]
+| x :: y :: xs => by
+  rw [List.sorted_cons_cons] at hsort
+  rw [unfoldDelta]
+  rw [List.sum_cons, List.zipIdx_cons, List.map_cons, List.sum_cons, List.zipIdx_succ]
+  rw [← sum_unfoldDelta hsort.2]
+  rw [mul_one, List.map_map]
+  simp only
+  have : (fun x ↦ x.1 * x.2) ∘ (fun (x : ℕ × ℕ) ↦ (x.1, x.2 + 1)) =
+      fun x ↦ x.1 + x.1 * (x.2) := by
+    ext x
+    simp
+    ring
+  rw [this]
+  rw [List.sum_map_add]
+  rw [← add_assoc]
+  suffices x - y + (unfoldDelta (y :: xs)).sum = x by simpa
+  rw [← Nat.sub_add_comm hsort.1.le]
+  apply Nat.sub_eq_of_eq_add
+  rw [Nat.add_left_cancel_iff]
+  rw [sum_unfoldDelta' hsort.2]
+  simp
+
+@[simp]
+theorem unfoldDelta_foldDelta (l : List ℕ) : unfoldDelta (foldDelta l) = l :=
+match l with
+| [] => by simp [foldDelta, unfoldDelta]
+| x :: xs => by
+  rw [foldDelta]
+  cases h : foldDelta xs with
+  | nil =>
+    simpa [unfoldDelta] using h
+  | cons x' xs' =>
+    simp [unfoldDelta, ← h, unfoldDelta_foldDelta]
+
+@[simp]
+theorem foldDelta_unfoldDelta {l : List ℕ} (h : l.Sorted (· ≥ ·)) :
+    foldDelta (unfoldDelta l) = l :=
+match l with
+| [] => by simp [foldDelta, unfoldDelta]
+| [x] => by simp [foldDelta, unfoldDelta]
+| x :: y :: xs => by
+  rw [List.sorted_cons_cons] at h
+  suffices y + (x - y) = x by
+    simpa [unfoldDelta, foldDelta, (foldDelta_unfoldDelta h.2)]
+  exact Nat.add_sub_of_le  h.1
+
+theorem Multiset.qind {α : Type*} {motive : Multiset α → Prop}
+    (mk : ∀ (a : List α), motive a) : ∀ a, motive a :=
+  Quotient.ind mk
+
+def equivPartitionDistincts : FerrersDiagram n ≃ Nat.Partition.distincts n where
+  toFun x := ⟨{
+    parts := foldDelta x.delta
+    parts_pos {a} h := by
+      have h : a ∈ foldDelta x.delta := by simpa using h
+      exact foldDelta_pos_of_pos (List.forall_iff_forall_mem.mp x.delta_pos) a h
+    parts_sum := by simp [sum_foldDelta, x.delta_sum]
+  }, by
+    simpa [Nat.Partition.distincts] using List.Sorted.nodup (foldDelta_sorted_of_pos x.delta_pos)
+  ⟩
+  invFun x := {
+    delta := unfoldDelta (x.val.parts.sort (· ≥ ·))
+    delta_pos := by
+      have hsort : (Multiset.sort (· ≥ ·) x.val.parts).Sorted (· ≥ ·) := by
+        apply Multiset.sort_sorted
+      have hsort' : (Multiset.sort (· ≥ ·) x.val.parts).Sorted (· > ·) := by
+        apply List.Sorted.gt_of_ge hsort
+        obtain h := x.prop
+        have h : x.val.parts.Nodup := by
+          simpa [Nat.Partition.distincts, -Finset.coe_mem] using h
+        revert h
+        induction x.val.parts using Multiset.qind with | mk a
+        simp
+      apply unfoldDelta_pos_of_sorted hsort'
+      rw [List.forall_iff_forall_mem]
+      intro a ha
+      exact x.val.parts_pos (by simpa using ha)
+    delta_sum := by
+      conv => right; rw [← x.val.parts_sum]
+      rw [sum_unfoldDelta (by simp)]
+      induction x.val.parts using Multiset.qind with | mk a
+      rw [Multiset.coe_sort, Multiset.sum_coe]
+      apply List.Perm.sum_eq
+      apply List.mergeSort_perm
+  }
+  left_inv := by
+    intro
+    ext1
+    simp
+  right_inv := by
+    intro
+    ext1
+    simp
+
+instance : Fintype (FerrersDiagram n) := Fintype.ofEquiv _ equivPartitionDistincts.symm
 
 
 end FerrersDiagram
