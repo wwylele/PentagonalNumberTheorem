@@ -1546,5 +1546,257 @@ def equivPartitionDistincts : FerrersDiagram n ≃ Nat.Partition.distincts n whe
 
 instance : Fintype (FerrersDiagram n) := Fintype.ofEquiv _ equivPartitionDistincts.symm
 
+theorem card_sub (hn : 0 < n) :
+    ({x : FerrersDiagram n | Even x.delta.length}.ncard -
+    {x : FerrersDiagram n | ¬ Even x.delta.length}.ncard : ℤ) =
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length}.ncard -
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length}.ncard := by
+
+  have heven : {x : FerrersDiagram n | Even x.delta.length} =
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length} ∪
+    {x : FerrersDiagram n |
+      ¬ (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length} := by
+    rw [← Set.setOf_or]
+    simp_rw [← or_and_right, or_not]
+    simp
+
+  have hodd : {x : FerrersDiagram n | ¬ Even x.delta.length} =
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length} ∪
+    {x : FerrersDiagram n |
+      ¬ (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length} := by
+    rw [← Set.setOf_or]
+    simp_rw [← or_and_right, or_not]
+    simp
+
+  rw [heven, hodd]
+  rw [Set.ncard_union_eq (by
+    rw [Set.disjoint_iff, ← Set.setOf_and]
+    simp_rw [← and_and_right, and_not_self]
+    simp
+  )]
+  rw [Set.ncard_union_eq (by
+    rw [Set.disjoint_iff, ← Set.setOf_and]
+    simp_rw [← and_and_right, and_not_self]
+    simp
+  )]
+  push_cast
+  rw [add_sub_add_comm]
+  simp_rw [not_or]
+  rw [card_eq hn]
+  simp
+
+theorem Finset.sum_range_id_mul_two' (n : ℕ) :
+    2 * (∑ i ∈ Finset.range n, (i : ℤ)) = n * (n - 1) := by
+  rw [mul_comm 2]
+  obtain h := Finset.sum_range_id_mul_two n
+  zify at h
+  rw [h]
+  obtain h | h := lt_or_ge n 1
+  · simp [Nat.lt_one_iff.mp h]
+  · push_cast [h]
+    rfl
+
+theorem IsPosPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
+    (hpospen : x.IsPosPentagonal hn) :
+    (2 * n : ℤ) = x.delta.length * (3 * x.delta.length - 1) := by
+  obtain ⟨hlength, hone⟩ := hpospen
+  simp_rw [← x.delta_sum]
+  conv =>
+    left
+    rw [← List.take_append_getLast x.delta (x.delta_ne_nil hn)]
+  rw [List.zipIdx_append]
+  have hl : 1 ≤ x.delta.length :=  Nat.one_le_of_lt (List.length_pos_iff.mpr (x.delta_ne_nil hn))
+  have h1 : List.map (fun p ↦ p.1 * p.2) ((List.take (x.delta.length - 1) x.delta).zipIdx 1)
+      = List.ofFn (fun (i : Fin (x.delta.length - 1)) ↦ i.val + 1) := by
+    apply List.ext_getElem (by simp)
+    intro i h1 h2
+    have hil : i < x.delta.length - 1 := by simpa using h1
+    suffices x.delta[i]'(hil.trans_le (by simp)) = 1 by simp [this]; ring
+    apply hone i hil
+
+  suffices (2 * (∑ (i : Fin (x.delta.length - 1)), (i.val + 1) +
+      x.delta.length * x.delta.length) : ℤ) =
+      x.delta.length * (3 * x.delta.length - 1) by
+    simpa [hl, h1, List.sum_ofFn, hlength]
+
+  have hsum : ∑ (i : Fin (x.delta.length - 1)), (i.val + 1) =
+      ∑ i ∈ Finset.range (x.delta.length - 1), (i + 1) := by
+    rw [Finset.sum_fin_eq_sum_range]
+    apply Finset.sum_congr rfl
+    intro i hi
+    rw [Finset.mem_range] at hi
+    simp [hi]
+  rw [hsum]
+  rw [Finset.sum_add_distrib]
+  push_cast
+  simp_rw [mul_add]
+  rw [Finset.sum_range_id_mul_two']
+  simp only [Finset.sum_const, Finset.card_range, Int.nsmul_eq_mul, mul_one]
+  push_cast [hl]
+  ring
+
+theorem IsNegPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
+    (hpospen : x.IsNegPentagonal hn) :
+    (2 * n : ℤ) = (-x.delta.length) * (3 * (-x.delta.length) - 1) := by
+  obtain ⟨hlength, hone⟩ := hpospen
+  simp_rw [← x.delta_sum]
+  conv =>
+    left
+    rw [← List.take_append_getLast x.delta (x.delta_ne_nil hn)]
+  rw [List.zipIdx_append]
+  have hl : 1 ≤ x.delta.length :=  Nat.one_le_of_lt (List.length_pos_iff.mpr (x.delta_ne_nil hn))
+  have h1 : List.map (fun p ↦ p.1 * p.2) ((List.take (x.delta.length - 1) x.delta).zipIdx 1)
+      = List.ofFn (fun (i : Fin (x.delta.length - 1)) ↦ i.val + 1) := by
+    apply List.ext_getElem (by simp)
+    intro i h1 h2
+    have hil : i < x.delta.length - 1 := by simpa using h1
+    suffices x.delta[i]'(hil.trans_le (by simp)) = 1 by simp [this]; ring
+    apply hone i hil
+
+  suffices (2 * (∑ (i : Fin (x.delta.length - 1)), (i.val + 1) +
+      (x.delta.length + 1) * x.delta.length) : ℤ) =
+      (-x.delta.length) * (3 * (-x.delta.length) - 1) by
+    simpa [hl, h1, List.sum_ofFn, hlength] using this
+
+  have hsum : ∑ (i : Fin (x.delta.length - 1)), (i.val + 1) =
+      ∑ i ∈ Finset.range (x.delta.length - 1), (i + 1) := by
+    rw [Finset.sum_fin_eq_sum_range]
+    apply Finset.sum_congr rfl
+    intro i hi
+    rw [Finset.mem_range] at hi
+    simp [hi]
+  rw [hsum]
+  rw [Finset.sum_add_distrib]
+  push_cast
+  simp_rw [mul_add]
+  rw [Finset.sum_range_id_mul_two']
+  simp only [Finset.sum_const, Finset.card_range, Int.nsmul_eq_mul, mul_one]
+  push_cast [hl]
+  ring
+
+theorem pentagonal_exists_k (hn : 0 < n) (x : FerrersDiagram n)
+    (hpen : x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) :
+    ∃ k : ℤ, 2 * n = k * (3 * k - 1) ∧ (Even x.delta.length ↔ Even k)  := by
+  obtain h | h := hpen
+  · use x.delta.length
+    constructor
+    · apply IsPosPentagonal.two_n_eq hn x h
+    · simp
+  · use -x.delta.length
+    constructor
+    · apply IsNegPentagonal.two_n_eq hn x h
+    · simp
+
+theorem pentagonal_of_exists_k (hn : 0 < n) {k : ℤ} (h : 2 * n = k * (3 * k - 1)) :
+    ∃ x : FerrersDiagram n, x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn := by
+  obtain hneg | rfl | hpos := lt_trichotomy k 0
+  · sorry
+  · have h0 : n = 0 := by simpa using h
+    simp [h0] at hn
+  · sorry
+
+theorem pentagonal_unique {x y : ℤ} (h : x * (3 * x - 1) = y * (3 * y - 1)) : x = y := by
+  simp_rw [mul_sub_one] at h
+  rw [sub_eq_sub_iff_sub_eq_sub] at h
+  rw [mul_left_comm x, mul_left_comm y] at h
+  rw [← mul_sub] at h
+  rw [mul_self_sub_mul_self] at h
+  rw [← mul_assoc] at h
+  rw [← sub_eq_zero, ← sub_one_mul] at h
+  rw [mul_eq_zero] at h
+  obtain h | h := h
+  · obtain h' := Int.eq_of_mul_eq_one <| eq_of_sub_eq_zero h
+    simp [← h'] at h
+  · exact eq_of_sub_eq_zero h
+
+theorem pentagonal_subsingleton (hn : 0 < n) :
+    {x : FerrersDiagram n | (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn)}.Subsingleton := by
+  intro a ha b hb
+  rw [Set.mem_setOf_eq] at ha hb
+  obtain ha | ha := ha <;> obtain hb | hb := hb
+  · obtain ha' := IsPosPentagonal.two_n_eq hn a ha
+    obtain hb' := IsPosPentagonal.two_n_eq hn b hb
+    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    norm_cast at h
+    ext1
+    apply List.ext_getElem h
+    intro i hai hbi
+    unfold IsPosPentagonal at ha hb
+    by_cases hi : i < a.delta.length - 1
+    · rw [ha.2 i hi, hb.2 i (h ▸ hi)]
+    · have hai' : i = a.delta.length - 1 :=
+        le_antisymm (Nat.le_sub_one_of_lt hai) (Nat.le_of_not_lt hi)
+      have hbi' : i = b.delta.length - 1 := h ▸ hai'
+      conv => left; left; rw [hai']
+      conv => right; left; rw [hbi']
+      rw [← List.getLast_eq_getElem (a.delta_ne_nil hn)]
+      rw [← List.getLast_eq_getElem (b.delta_ne_nil hn)]
+      rw [ha.1, hb.1]
+      exact h
+  · obtain ha' := IsPosPentagonal.two_n_eq hn a ha
+    obtain hb' := IsNegPentagonal.two_n_eq hn b hb
+    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    simp only [Nat.cast_eq_neg_cast, List.length_eq_zero_iff] at h
+    exact False.elim <| a.delta_ne_nil hn h.1
+  · obtain ha' := IsNegPentagonal.two_n_eq hn a ha
+    obtain hb' := IsPosPentagonal.two_n_eq hn b hb
+    obtain h := pentagonal_unique <| hb'.symm.trans ha'
+    simp only [Nat.cast_eq_neg_cast, List.length_eq_zero_iff] at h
+    exact False.elim <| a.delta_ne_nil hn h.2
+  · obtain ha' := IsNegPentagonal.two_n_eq hn a ha
+    obtain hb' := IsNegPentagonal.two_n_eq hn b hb
+    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    simp only [neg_inj, Nat.cast_inj] at h
+    ext1
+    apply List.ext_getElem h
+    intro i hai hbi
+    unfold IsNegPentagonal at ha hb
+    by_cases hi : i < a.delta.length - 1
+    · rw [ha.2 i hi, hb.2 i (h ▸ hi)]
+    · have hai' : i = a.delta.length - 1 :=
+        le_antisymm (Nat.le_sub_one_of_lt hai) (Nat.le_of_not_lt hi)
+      have hbi' : i = b.delta.length - 1 := h ▸ hai'
+      conv => left; left; rw [hai']
+      conv => right; left; rw [hbi']
+      rw [← List.getLast_eq_getElem (a.delta_ne_nil hn)]
+      rw [← List.getLast_eq_getElem (b.delta_ne_nil hn)]
+      rw [ha.1, hb.1]
+      simpa using h
+
+theorem phiCoeff_eq_card_sub (hn : 0 < n) :
+    phiCoeff n =
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length}.ncard -
+    {x : FerrersDiagram n |
+      (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length}.ncard := by
+  by_cases hpen : (n : ℤ) ∈ Set.range pentagonal
+  · obtain ⟨k, hk⟩ := hpen
+    rw [← hk, phiCoeff_pentagonal]
+    sorry
+  · rw [(phiCoeff_eq_zero_iff _).mpr hpen]
+    convert (show (0 : ℤ) = 0 - 0 by simp)
+    all_goals
+    · rw [Set.setOf_and]
+      norm_cast
+      apply Nat.eq_zero_of_le_zero
+      apply (Set.ncard_inter_le_ncard_left _ _).trans
+      rw [Set.setOf_or]
+      apply (Set.ncard_union_le _ _).trans
+      rw [nonpos_iff_eq_zero, Nat.add_eq_zero]
+      rw [Set.ncard_eq_zero, Set.ncard_eq_zero]
+      constructor
+      all_goals
+      · ext x
+        simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+        contrapose! hpen
+        obtain ⟨k, hk, _⟩ := pentagonal_exists_k hn x (by simp [hpen])
+        use k
+        apply Int.eq_of_mul_eq_mul_left (show 2 ≠ 0 by simp)
+        rw [two_pentagonal, hk]
+
 
 end FerrersDiagram
