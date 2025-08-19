@@ -1963,21 +1963,118 @@ theorem phiCoeff_eq (n : ℕ) : phiCoeff n = phiCoeff' n := by
   rw [Finset.sum_neg_distrib]
   simp_rw [Finset.sum_const, nsmul_one, Int.add_neg_eq_sub]
   congr 2
+  all_goals
   · apply Finset.card_bij' (fun x _ ↦ (FerrersDiagram.equivPartitionDistincts n x).val)
       (fun x hx ↦ ((FerrersDiagram.equivPartitionDistincts n).symm
-        ⟨x, (Finset.mem_filter.mp hx).1⟩))
-    · intro x ha
-      rw [Finset.mem_filter] at ha
-      simpa using ha.2
-    · simp
-    · simp
-    · simp
-  · apply Finset.card_bij' (fun x _ ↦ (FerrersDiagram.equivPartitionDistincts n x).val)
-      (fun x hx ↦ ((FerrersDiagram.equivPartitionDistincts n).symm
-        ⟨x, (Finset.mem_filter.mp hx).1⟩))
+        ⟨x, (Finset.mem_filter.mp hx).1⟩)) ?_ ?_ ?_ ?_
+    · simp [-Nat.not_even_iff_odd]
     · intro x ha
       rw [Finset.mem_filter] at ha
       simpa [-Nat.not_even_iff_odd] using ha.2
     · simp
     · simp
-    · simp [-Nat.not_even_iff_odd]
+
+theorem PowerSeries.monomil_mul_monomial {R : Type*} [Semiring R] (m n : ℕ) (a b : R) :
+    monomial R m a * monomial R n b = monomial R (m + n) (a * b) := by
+  unfold monomial
+  convert MvPowerSeries.monomial_mul_monomial (Finsupp.single () m) (Finsupp.single () n) a b
+  simp
+
+theorem PowerSeries.prod_monomial {R : Type*} [CommRing R] {ι : Type*} [DecidableEq ι]
+    (s : Finset ι) (f : ι → ℕ) (g : ι → R) :
+    ∏ i ∈ s, monomial R (f i) (g i) =
+    monomial R (∑ i ∈ s, f i) (∏ i ∈ s, g i) := by
+  induction s using Finset.induction with
+  | empty => simp
+  | insert a s ha h =>
+    simp [ha, h, monomil_mul_monomial]
+
+
+theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1))
+    (PowerSeries.mk (phiCoeff' ·)) := by
+  unfold HasProd
+  rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
+  intro n
+  apply tendsto_atTop_of_eventually_const (i₀ := Finset.Icc 1 (n.toPNat'))
+  intro s hs
+  rw [PowerSeries.coeff_mk]
+  simp_rw [sub_eq_add_neg]
+  rw [Finset.prod_one_add]
+  rw [map_sum]
+  have (i : ℕ+) : -(PowerSeries.monomial ℤ i) 1 = (PowerSeries.monomial ℤ i (-1)) := by simp
+  simp_rw [this]
+  simp_rw [PowerSeries.prod_monomial]
+  simp_rw [Finset.prod_const]
+  simp_rw [PowerSeries.coeff_monomial]
+  rw [Finset.sum_ite]
+  rw [Finset.sum_const_zero, add_zero]
+  unfold phiCoeff'
+
+  let f (x : Finset ℕ+) (h : x ∈ s.powerset.filter (n = ∑ i ∈ ·, i.val)) : n.Partition := {
+    parts := x.val.map (↑)
+    parts_pos := by simp
+    parts_sum := by
+      rw [Finset.mem_filter] at h
+      simpa using h.2.symm
+  }
+
+  let g (x : n.Partition) (h : x ∈ Nat.Partition.distincts n) : Finset ℕ+ := Finset.mk
+      (x.parts.map (Nat.toPNat')) (by
+    refine (Multiset.nodup_map_iff_of_inj_on ?_).mpr (Finset.mem_filter.mp h).2
+    intro a ha b hb hab
+    apply_fun ((↑) : ℕ+ → ℕ) at hab
+    simp_rw [Nat.toPNat'_coe] at hab
+    simpa [x.parts_pos ha, x.parts_pos hb] using hab
+  )
+
+  refine Finset.sum_bij' f g ?_ ?_ ?_ ?_ ?_
+  · intro x hx
+    suffices (Multiset.map PNat.val x.val).Nodup by simpa [f, Nat.Partition.distincts]
+    refine (Multiset.nodup_map_iff_of_inj_on ?_).mpr x.nodup
+    intro a ha b hb hab
+    exact PNat.eq hab
+  · intro x hx
+    rw [Finset.mem_filter, Finset.mem_powerset]
+    constructor
+    · refine subset_trans ?_ hs
+      suffices ∀ a ∈ x.parts, a.toPNat' ≤ n.toPNat' by simpa [g, Finset.subset_iff]
+      intro a ha
+      suffices a ≤ n by
+        obtain rfl | ha0 := Nat.eq_zero_or_pos a
+        · simp
+        · apply (PNat.coe_le_coe _ _).mp
+          simpa [ha0, ha0.trans_le this] using this
+      rw [← x.parts_sum]
+      exact Multiset.le_sum_of_mem ha
+    · suffices n = (Multiset.map (fun x ↦ if 0 < x then x else 1) x.parts).sum by simpa [g]
+      have : Multiset.map (fun x ↦ if 0 < x then x else 1) x.parts =
+          Multiset.map id x.parts := by
+        apply Multiset.map_congr rfl
+        intro a ha
+        simp [x.parts_pos ha]
+      simp [this, x.parts_sum]
+  · simp [f, g]
+  · intro x hx
+    ext1
+    suffices Multiset.map (fun x ↦ if 0 < x then x else 1) x.parts = x.parts by simpa [f, g]
+    have : Multiset.map (fun x ↦ if 0 < x then x else 1) x.parts =
+        Multiset.map id x.parts := by
+      apply Multiset.map_congr rfl
+      intro a ha
+      simp [x.parts_pos ha]
+    simp [this]
+  · simp [f]
+
+open PowerSeries
+
+-- ∏' (n : ℕ+), (1 - x ^ n) = ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k - 1) / 2)
+theorem pentagonalNumberTheorem :
+    ∏' (n : ℕ+), (1 - monomial ℤ n 1) =
+    ∑' (k : ℤ), monomial ℤ (k * (3 * k - 1) / 2).toNat ((-1) ^ k : ℤˣ) := by
+  apply HasProd.tprod_eq
+  convert eularPhi
+  simp_rw [← phiCoeff_eq]
+  rw [← phi]
+  exact hasSum_phi.tsum_eq
+
+#print axioms pentagonalNumberTheorem
