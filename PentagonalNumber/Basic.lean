@@ -1,17 +1,31 @@
 import Mathlib
 
+/-!
+
+# Pentagonal number theorem
+
+This file proves the
+[pentagonal number theorem](https://en.wikipedia.org/wiki/Pentagonal_number_theorem)
+in terms of formal power series:
+
+$$\prod_{n=1}^{\infty} (1 - x^n) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
+
+following Franklin's bijective proof presented on the wikipedia page. This polynomial,
+regarded as a complex-valued function, is also known as the Euler function $\phi(x)$
+
+## Main theorem
+* `pentagonalNumberTheorem`
+
+-/
+
 open scoped PowerSeries.WithPiTopology
 
---theorem phi_multipliable: Multipliable
---  fun k ↦ (PowerSeries.C ℤ 1 - PowerSeries.monomial ℤ (k + 1) 1) := by
+/-! ## Basic properties of pentagonal numbers -/
 
-
---noncomputable
---def phi : PowerSeries ℤ := ∏' k, (PowerSeries.C ℤ 1 - PowerSeries.monomial ℤ (k + 1) 1)
-
-
+/-- Pentagonal numbers, including negative inputs -/
 def pentagonal (k : ℤ) := k * (3 * k - 1) / 2
 
+/-- Because integer division is hard to work with, we often multiply it by two -/
 theorem two_pentagonal (k : ℤ) : 2 * pentagonal k = k * (3 * k - 1) := by
   unfold pentagonal
   refine Int.two_mul_ediv_two_of_even ?_
@@ -23,7 +37,7 @@ theorem two_pentagonal (k : ℤ) : 2 * pentagonal k = k * (3 * k - 1) := by
     refine Odd.mul ?_ h
     decide
 
-
+/-- Nonnegativity -/
 theorem pentagonal_nonneg (k : ℤ) : 0 ≤ pentagonal k := by
   suffices 0 ≤ 2 * pentagonal k by simpa
   rw [two_pentagonal]
@@ -31,39 +45,55 @@ theorem pentagonal_nonneg (k : ℤ) : 0 ≤ pentagonal k := by
   · exact mul_nonneg h.le (by linarith)
   · exact mul_nonneg_of_nonpos_of_nonpos h (by linarith)
 
-theorem pentagonal_injective : Function.Injective pentagonal := by
-  intro a b h
-  have : a * (3 * a - 1) - b * (3 * b - 1) = 0 := by
-    simp [← two_pentagonal, h]
-  have : (3 * (a + b) - 1) * (a - b) = 0 := by
-    rw [← this]
-    ring
-  obtain h | h := mul_eq_zero.mp this
+theorem two_pentagonal_inj {x y : ℤ} (h : x * (3 * x - 1) = y * (3 * y - 1)) : x = y := by
+  simp_rw [mul_sub_one] at h
+  rw [sub_eq_sub_iff_sub_eq_sub] at h
+  rw [mul_left_comm x, mul_left_comm y] at h
+  rw [← mul_sub] at h
+  rw [mul_self_sub_mul_self] at h
+  rw [← mul_assoc] at h
+  rw [← sub_eq_zero, ← sub_one_mul] at h
+  rw [mul_eq_zero] at h
+  obtain h | h := h
   · obtain h' := Int.eq_of_mul_eq_one <| eq_of_sub_eq_zero h
     simp [← h'] at h
   · exact eq_of_sub_eq_zero h
 
-def Δ (n : ℤ) := 1 + 24 * n
+/-- There are no repeated pentagonal number -/
+theorem pentagonal_injective : Function.Injective pentagonal := by
+  intro a b h
+  have : a * (3 * a - 1) = b * (3 * b - 1) := by
+    simp [← two_pentagonal, h]
+  apply two_pentagonal_inj this
 
-theorem Δ_pentagonal (k : ℤ) : Δ (pentagonal k) = (6 * k - 1) ^ 2 := by
-  unfold Δ
+/-- The inverse of pentagonal number $n = k(3k - 1) / 2$ is
+$$ k = \frac{1 \pm \sqrt{1 + 24n}}{6} $$
+We can use $1 + 24n$ to determine whether such inverse exists.
+-/
+def pentagonalDelta (n : ℤ) := 1 + 24 * n
+
+theorem pentagonalDelta_pentagonal (k : ℤ) : pentagonalDelta (pentagonal k) = (6 * k - 1) ^ 2 := by
+  unfold pentagonalDelta
   rw [show 24 * pentagonal k = 12 * (2 * pentagonal k) by ring]
   rw [two_pentagonal]
   ring
 
+/-- The first definition of $\phi(x)$, where each coefficient is assigned according to the
+pentagonal number inverse. $0$ if there is no inverse; $(-1)^k$ if there is an inverse $k$. -/
 def phiCoeff (n : ℤ) : ℤ :=
-  if IsSquare (Δ n) then
-    if 6 ∣ 1 + (Δ n).sqrt then
-      ((1 + (Δ n).sqrt) / 6).negOnePow
-    else if 6 ∣ 1 - (Δ n).sqrt then
-      ((1 - (Δ n).sqrt) / 6).negOnePow
+  if IsSquare (pentagonalDelta n) then
+    if 6 ∣ 1 + (pentagonalDelta n).sqrt then
+      ((1 + (pentagonalDelta n).sqrt) / 6).negOnePow
+    else if 6 ∣ 1 - (pentagonalDelta n).sqrt then
+      ((1 - (pentagonalDelta n).sqrt) / 6).negOnePow
     else
       0
   else
     0
 
+/-- The coefficients are exactly $(-1)^k$ at pentagonal numbers. -/
 theorem phiCoeff_pentagonal (k : ℤ) : phiCoeff (pentagonal k) = k.negOnePow := by
-  rw [phiCoeff, Δ_pentagonal]
+  rw [phiCoeff, pentagonalDelta_pentagonal]
   have hsquare : IsSquare ((6 * k - 1) ^ 2) := IsSquare.sq _
   simp only [hsquare, ↓reduceIte]
   simp_rw [sq, Int.sqrt_eq]
@@ -75,6 +105,7 @@ theorem phiCoeff_pentagonal (k : ℤ) : phiCoeff (pentagonal k) = k.negOnePow :=
     rw [show 1 + (1 - 6 * k) = 2 + 6 * (-k) by ring]
     simp [-mul_neg]
 
+/-- A coefficient is zero iff and only if it is not a pentagonal number. -/
 theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pentagonal := by
   rw [phiCoeff]
   constructor
@@ -84,7 +115,7 @@ theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pent
     · intro _
       by_contra! hmem
       obtain ⟨k, h⟩ := hmem
-      rw [← h, Δ_pentagonal, sq, Int.sqrt_eq] at h1 h2
+      rw [← h, pentagonalDelta_pentagonal, sq, Int.sqrt_eq] at h1 h2
       obtain h | h := le_total 0 (6 * k - 1)
       · rw [Int.natAbs_of_nonneg h] at h1
         simp at h1
@@ -94,7 +125,7 @@ theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pent
     · intro _
       contrapose! hsq with hmem
       obtain ⟨k, h⟩ := hmem
-      rw [← h, Δ_pentagonal]
+      rw [← h, pentagonalDelta_pentagonal]
       exact IsSquare.sq _
   · split_ifs with hsq h1 h2
     · intro h
@@ -103,7 +134,7 @@ theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pent
       rw [ha, Int.sqrt_eq, dvd_iff_exists_eq_mul_right] at h1
       obtain ⟨k, hk⟩ := h1
       have hk' : a.natAbs = 6 * k - 1 := eq_sub_iff_add_eq'.mpr hk
-      rw [Δ, ← Int.natAbs_mul_self' a, hk'] at ha
+      rw [pentagonalDelta, ← Int.natAbs_mul_self' a, hk'] at ha
       use k
       apply Int.eq_of_mul_eq_mul_left (show 24 ≠ 0 by simp)
       refine (eq_iff_eq_of_add_eq_add ?_).mp (show 1 = 1 by rfl)
@@ -115,7 +146,7 @@ theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pent
       rw [ha, Int.sqrt_eq, dvd_iff_exists_eq_mul_right] at h2
       obtain ⟨k, hk⟩ := h2
       have hk' : a.natAbs = 1 - 6 * k := by linarith
-      rw [Δ, ← Int.natAbs_mul_self' a, hk'] at ha
+      rw [pentagonalDelta, ← Int.natAbs_mul_self' a, hk'] at ha
       use k
       apply Int.eq_of_mul_eq_mul_left (show 24 ≠ 0 by simp)
       refine (eq_iff_eq_of_add_eq_add ?_).mp (show 1 = 1 by rfl)
@@ -124,8 +155,10 @@ theorem phiCoeff_eq_zero_iff (n : ℤ) : phiCoeff n = 0 ↔ n ∉ Set.range pent
     · simp
     · simp
 
+/-- $\phi(x)$ is constructed using the coefficients defined above. -/
 def phi : PowerSeries ℤ := PowerSeries.mk (phiCoeff ·)
 
+/-- The second definition of $\phi(x)$, summing over terms with pentagonal exponents directly. -/
 theorem hasSum_phi :
     HasSum (fun k ↦ PowerSeries.monomial ℤ (pentagonal k).toNat k.negOnePow) phi := by
   obtain h := PowerSeries.hasSum_of_monomials_self phi
@@ -155,70 +188,49 @@ theorem hasSum_phi :
     simp [(phiCoeff_eq_zero_iff _).mpr hx]
   exact (Function.Injective.hasSum_iff hinj hrange).mpr h
 
+/-! ## Some utility of lists -/
 
-#eval (List.range 15).map phiCoeff
+namespace List
+variable {α : Type*}
 
-def Nat.DistinctPartition (n : ℕ) : Type := Nat.Partition.distincts n
-
-namespace Nat.DistinctPartition
-
-variable {n : ℕ}
-
-def parts (x : Nat.DistinctPartition n) := Finset.mk x.val.parts (Finset.mem_filter.mp x.prop).2
-
-theorem parts_pos (x : Nat.DistinctPartition n) {i : ℕ} (h : i ∈ x.parts) : 0 < i := by
-  apply x.val.parts_pos
-  simpa using h
-
-theorem parts_sum (x : Nat.DistinctPartition n) : x.parts.sum id = n := by
-  rw [Finset.sum_eq_multiset_sum, Multiset.map_id x.parts.val]
-  exact x.val.parts_sum
-
-theorem ext {x y : Nat.DistinctPartition n} (parts : x.parts = y.parts) : x = y := by
-  unfold Nat.DistinctPartition.parts at parts
-  apply Subtype.ext_val
-  apply Nat.Partition.ext
-  simpa using parts
-
-end Nat.DistinctPartition
-
-theorem List.zipIdx_set {α : Type*} (l : List α) (nset : ℕ) (a : α) (nzip : ℕ) :
-    (l.set nset a).zipIdx nzip = (l.zipIdx nzip).set nset (a, nset + nzip) := match l with
+theorem zipIdx_set {l : List α} {n k : Nat} {a : α} :
+    zipIdx (l.set n a) k = (zipIdx l k).set n (a, n + k) := match l with
   | [] => by simp
   | x :: xs =>
-    match nset with
+    match n with
     | 0 => by simp
-    | nset + 1 => by simp [zipIdx_set xs, show nset + (nzip + 1) = nset + 1 + nzip by ring]
+    | n + 1 => by
+      have h : n + (k + 1) = n + 1 + k := by grind
+      simp [zipIdx_set, h]
 
-theorem List.zipIdx_take {α : Type*} (l : List α) (ntake : ℕ) (nzip : ℕ) :
-    (l.take ntake).zipIdx nzip = (l.zipIdx nzip).take ntake := match l with
+theorem zipIdx_take {l : List α} {n k : Nat} :
+    zipIdx (l.take n) k = (zipIdx l k).take n := match l with
   | [] => by simp
   | x :: xs =>
-    match ntake with
+    match n with
     | 0 => by simp
-    | ntake + 1 => by
-      simp [zipIdx_take xs _]
+    | n + 1 => by simp [zipIdx_take]
 
-theorem List.zipIdx_drop {α : Type*} (l : List α) (ndrop : ℕ) (nzip : ℕ) :
-    (l.drop ndrop).zipIdx (nzip + ndrop) = (l.zipIdx nzip).drop ndrop := match l with
+theorem zipIdx_drop {l : List α} {n k : Nat} :
+    zipIdx (l.drop n) (k + n) = (zipIdx l k).drop n := match l with
   | [] => by simp
   | x :: xs =>
-    match ndrop with
+    match n with
     | 0 => by simp
-    | ndrop + 1 => by
-      simp [show nzip + (ndrop + 1) = nzip + 1 + ndrop by ring, zipIdx_drop xs]
+    | n + 1 => by
+      have h : k + (n + 1) = k + 1 + n := by grind
+      simp [zipIdx_drop, h]
 
-def List.lengthWhile {α : Type*} (p : α → Prop) [DecidablePred p] : List α →  ℕ
+/-- Returns the number of leading elements satisfying a condition. -/
+def lengthWhile (p : α → Prop) [DecidablePred p] : List α → ℕ
 | [] => 0
 | x :: xs => if p x then xs.lengthWhile p + 1 else 0
 
-
-
 @[simp]
-theorem List.lengthWhile_nil {α : Type*} (p : α → Prop) [DecidablePred p] :
+theorem lengthWhile_nil (p : α → Prop) [DecidablePred p] :
     [].lengthWhile p = 0 := rfl
 
-theorem List.lengthWhile_le_length {α : Type*} (p : α → Prop) [DecidablePred p] (l : List α) :
+theorem lengthWhile_le_length (p : α → Prop) [DecidablePred p] (l : List α) :
     l.lengthWhile p ≤ l.length := match l with
   | [] => by simp
   | x :: xs => by
@@ -227,7 +239,7 @@ theorem List.lengthWhile_le_length {α : Type*} (p : α → Prop) [DecidablePred
     · simpa [h] using lengthWhile_le_length p xs
     · simp [h]
 
-theorem List.lengthWhile_eq_length_iff {α : Type*} {p : α → Prop} [DecidablePred p] {l : List α} :
+theorem lengthWhile_eq_length_iff {p : α → Prop} [DecidablePred p] {l : List α} :
     l.lengthWhile p = l.length ↔ l.Forall p := match l with
 | [] => by simp
 | x :: xs => by
@@ -236,7 +248,7 @@ theorem List.lengthWhile_eq_length_iff {α : Type*} {p : α → Prop} [Decidable
   · simpa [h] using lengthWhile_eq_length_iff
   · simp [h]
 
-theorem List.pred_of_lt_lengthWhile {α : Type*} (p : α → Prop) [DecidablePred p] {l : List α}
+theorem pred_of_lt_lengthWhile (p : α → Prop) [DecidablePred p] {l : List α}
     {i : ℕ} (h : i < l.lengthWhile p) : p (l[i]'(h.trans_le (l.lengthWhile_le_length p))) :=
   match l with
   | [] => by simp at h
@@ -255,7 +267,7 @@ theorem List.pred_of_lt_lengthWhile {α : Type*} (p : α → Prop) [DecidablePre
       simp only [getElem_cons_succ]
       apply pred_of_lt_lengthWhile p h
 
-theorem List.lengthWhile_eq_iff_of_lt_length {α : Type*}
+theorem lengthWhile_eq_iff_of_lt_length
     {p : α → Prop} [DecidablePred p] {l : List α} {a : ℕ} (ha : a < l.length) :
     l.lengthWhile p = a ↔ (∀ i, (h : i < a) → p (l[i])) ∧ (¬ p l[a]) := match l with
 | [] => by simp at ha
@@ -285,7 +297,7 @@ theorem List.lengthWhile_eq_iff_of_lt_length {α : Type*}
       specialize hi 0 (by grind)
       simp [h] at hi
 
-theorem List.lengthWhile_mono {α : Type*}
+theorem lengthWhile_mono
     (p : α → Prop) [DecidablePred p] (l r : List α) :
     l.lengthWhile p ≤ (l ++ r).lengthWhile p := match l with
   | [] => by simp
@@ -294,7 +306,7 @@ theorem List.lengthWhile_mono {α : Type*}
     rw [lengthWhile, lengthWhile]
     split <;> simp [lengthWhile_mono]
 
-theorem List.lengthWhile_set {α : Type*}
+theorem lengthWhile_set
     (p : α → Prop) [DecidablePred p] (l : List α) {i : ℕ} (hi : i < l.length)
     (hp : ¬ p l[i]) (x : α) :
     l.lengthWhile p ≤ (l.set i x).lengthWhile p := match l with
@@ -309,19 +321,20 @@ theorem List.lengthWhile_set {α : Type*}
       · simpa using lengthWhile_set p _ (by simpa using hi) (by simpa using hp) _
       · simp
 
-def List.updateLast {α : Type*} (l : List α) (f : α → α) : List α :=
+/-- Replace the last element `a` with `f a`. -/
+def updateLast (l : List α) (f : α → α) : List α :=
   match l with
   | [] => []
   | x :: xs => (x :: xs).set ((x :: xs).length - 1) (f ((x :: xs).getLast (by simp)))
 
 @[simp]
-theorem List.updateLast_id {α : Type*} (l : List α) : l.updateLast id = l :=
+theorem updateLast_id (l : List α) : l.updateLast id = l :=
   match l with
   | [] => by simp [updateLast]
   | x :: xs => by
     simp [updateLast, List.getLast_eq_getElem]
 
-theorem List.updateLast_eq_self {α : Type*} (l : List α) (f : α → α)
+theorem updateLast_eq_self (l : List α) (f : α → α)
     (hl : l ≠ []) (h : f (l.getLast hl) = l.getLast hl) :
     l.updateLast f = l :=
   match l with
@@ -332,19 +345,18 @@ theorem List.updateLast_eq_self {α : Type*} (l : List α) (f : α → α)
     rw [getLast_eq_getElem]
     simp
 
+@[simp]
+theorem updateLast_nil (f : α → α) : [].updateLast f = [] := rfl
 
 @[simp]
-theorem List.updateLast_nil {α : Type*} (f : α → α) : [].updateLast f = [] := rfl
-
-@[simp]
-theorem List.updateLast_eq {α : Type*} (l : List α) (f : α → α) (h : l ≠ []) :
+theorem updateLast_eq (l : List α) (f : α → α) (h : l ≠ []) :
     l.updateLast f = l.set (l.length - 1) (f (l.getLast h)) :=
   match l with
   | [] => by simp [updateLast]
   | x :: xs => by simp [updateLast]
 
 @[simp]
-theorem List.updateLast_eq_nil_iff {α : Type*} (l : List α) (f : α → α) :
+theorem updateLast_eq_nil_iff (l : List α) (f : α → α) :
     l.updateLast f = [] ↔ l = [] := by
   constructor
   · intro h
@@ -354,20 +366,20 @@ theorem List.updateLast_eq_nil_iff {α : Type*} (l : List α) (f : α → α) :
     simp [h]
 
 @[simp]
-theorem List.getLast_updateLast {α : Type*} (l : List α) (f : α → α) (h : l ≠ []) :
+theorem getLast_updateLast (l : List α) (f : α → α) (h : l ≠ []) :
     (l.updateLast f).getLast ((List.updateLast_eq_nil_iff _ _).ne.mpr h) = f (l.getLast h) := by
   rw [List.getLast_eq_getElem]
   simp [h]
 
 @[simp]
-theorem List.length_updateLast {α : Type*} (l : List α) (f : α → α) :
+theorem length_updateLast (l : List α) (f : α → α) :
     (l.updateLast f).length = l.length :=
   match l with
   | [] => by simp
   | x :: xs => by simp
 
 @[simp]
-theorem List.updateLast_updateLast {α : Type*} (l : List α) (f g : α → α) :
+theorem updateLast_updateLast (l : List α) (f g : α → α) :
     (l.updateLast f).updateLast g = l.updateLast (g ∘ f) :=
   match l with
   | [] => by simp
@@ -383,7 +395,7 @@ theorem List.updateLast_updateLast {α : Type*} (l : List α) (f g : α → α) 
       simp_rw [List.getLast_eq_getElem]
       simp
 
-theorem List.getElem_updateLast {α : Type*} (l : List α) (f : α → α)
+theorem getElem_updateLast (l : List α) (f : α → α)
     {i : ℕ} (h : i + 1 < l.length) :
     (l.updateLast f)[i]'(by simp; grind) = l[i] :=
   match l with
@@ -392,16 +404,37 @@ theorem List.getElem_updateLast {α : Type*} (l : List α) (f : α → α)
     simp_rw [List.updateLast_eq (x :: xs) f (by simp)]
     rw [List.getElem_set_ne (by grind)]
 
+end List
+
+/-! ## Ferrers diagram -/
+
+/-! A `FerrersDiagram n` is a representation of distinct partition of number `n`.
+
+To represent a partition, we first sort all parts in descending order, such as
+```
+26 = 14 + 8 + 3 + 1  →  [14, 8, 3, 1]
+```
+We then calculate the difference between each element, and keep the last element:
+```
+[14, 8, 3, 1]  →  [6, 5, 2, 1]
+```
+
+We get a valid `x : FerrersDiagram 26` where `x.delta = [6, 5, 2, 1]`.
+-/
 @[ext]
 structure FerrersDiagram (n : ℕ) where
+  /-- The difference between parts. -/
   delta : List ℕ
+  /-- since we require distinct partition, all delta should be positive. -/
   delta_pos : delta.Forall (0 < ·)
+  /-- All parts should sum back to `n`. Since we took the difference, this becomes a rolling sum. -/
   delta_sum : ((delta.zipIdx 1).map fun p ↦ p.1 * p.2).sum = n
 deriving Repr
 
 namespace FerrersDiagram
 variable {n : ℕ}
 
+/-- There can't be more parts than `n` -/
 theorem length_delta_le_n (x : FerrersDiagram n) : x.delta.length ≤ n := by
   conv =>
     right
@@ -415,10 +448,14 @@ theorem length_delta_le_n (x : FerrersDiagram n) : x.delta.length ≤ n := by
   apply List.forall_iff_forall_mem.mp x.delta_pos
   simp [ha1]
 
+/-- The parts are not empty for non-zero `n`. We will discuss mostly with this condition,
+leaving the `n = 0` case a special one for later. -/
 theorem delta_ne_nil (hn : 0 < n) (x : FerrersDiagram n) : x.delta ≠ [] := by
   contrapose! hn
   simp [← x.delta_sum, hn]
 
+/-- All parts are not greater than `n`. Since the last element of `delta` equals to the
+smallest part, it is not greater either. -/
 theorem getLast_delta_le_n (hn : 0 < n) (x : FerrersDiagram n) :
     x.delta.getLast (x.delta_ne_nil hn) ≤ n := by
   conv => right; rw [← x.delta_sum]
@@ -436,18 +473,65 @@ theorem getLast_delta_le_n (hn : 0 < n) (x : FerrersDiagram n) :
       grind
     · grind
 
+
+/-! ## Pentagonal configuration
+
+There is a type of distinct partition we will call "pentagonal". Later, we will see they
+are in correspondence with pentagonal numbers.
+-/
+
+/-- The special configuration corresponding to pentagonal number `n` with a positive `k`.
+
+For example when `n = 12`, this looks like
+```
+∘ ∘ ∘ ∘ ∘
+∘ ∘ ∘ ∘
+∘ ∘ ∘
+```
+-/
 def IsPosPentagonal (hn : 0 < n) (x : FerrersDiagram n) :=
   x.delta.getLast (x.delta_ne_nil hn) = x.delta.length ∧
   ∀ i, (h : i < x.delta.length - 1) → x.delta[i] = 1
 
+/-- The special configuration corresponding to pentagonal number `n` with a negative `k`.
+
+For example when `n = 15`, this looks like
+```
+∘ ∘ ∘ ∘ ∘ ∘
+∘ ∘ ∘ ∘ ∘
+∘ ∘ ∘ ∘
+```
+-/
 def IsNegPentagonal (hn : 0 < n) (x : FerrersDiagram n) :=
   x.delta.getLast (x.delta_ne_nil hn) = x.delta.length + 1 ∧
   ∀ i, (h : i < x.delta.length - 1) → x.delta[i] = 1
 
-def diagSize (x : FerrersDiagram n) := x.delta.lengthWhile (· = 1) -- = s - 1
+/-! ## "Up" and "Down" movement
+
+We will define two operations on distinct partitions / Ferrers diagram:
+ - `down`: Take the elements on the right-most 45 degree diagonal and put them to a new bottom row
+ - `up`: Take the elements on the bottom row and spread them to the leading rows, forming
+   the new right-most 45 degree diagonal
+
+It is obvious that they are inverse to each other. We will only allow the operation when it is legal
+to do so. We will then show that for non-pentagonal configurations, either `up` or `down` will be
+legal, and performing the action will make the other one legal.
+
+-/
+
+/-- The number of consecutive leading 1 in `delta`.
+
+This is mimicking the "number of elements in the rightmost 45 degree line of the diagram" `s`,
+where we have `diagSize = s - 1`. However, if the configuration is a complete triangle
+(i.e. `delta` are all 1), then we actually have `diagSize = s`. This inconsistency turns out
+insignificant, because we only care whether this size is smaller than the smallest part, and
+that's never the case for triangle configuration regardless which definition we take
+(except for pentagonal configuration, which we will discuss separately anyway) -/
+def diagSize (x : FerrersDiagram n) := x.delta.lengthWhile (· = 1)
 
 abbrev takeDiagFun (delta : List ℕ) (i : ℕ) (hi : i < delta.length) := delta.set i (delta[i] - 1)
 
+/-- The action to subtract one from the first `i + 1` parts. -/
 def takeDiag (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.length)
     (h : 1 < x.delta[i]) : FerrersDiagram (n - (i + 1)) where
   delta := takeDiagFun x.delta i hi
@@ -481,6 +565,7 @@ theorem takeDiag_ne_nil (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.lengt
   unfold takeDiag
   simpa using List.length_pos_iff.mp (Nat.zero_lt_of_lt hi)
 
+/-- `takeDiag` preserves the last part as long as we didn't touch it. -/
 theorem getLast_takeDiag (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.length - 1)
     (h : 1 < x.delta[i]) :
     (x.takeDiag i (Nat.lt_of_lt_of_le hi (by simp)) h).delta.getLast
@@ -496,6 +581,7 @@ theorem getLast_takeDiag (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.leng
   rw [List.getElem_set]
   simp [hi.ne]
 
+/-- `takeDiag` make the last part smaller by one if we took one from every part -/
 theorem getLast_takeDiag' (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ) (hi : i = x.delta.length - 1)
     (h : 1 < x.delta[i]'(by simpa [hi] using List.length_pos_iff.mpr (x.delta_ne_nil hn))) :
     (x.takeDiag i (by simpa [hi] using List.length_pos_iff.mpr (x.delta_ne_nil hn)) h).delta.getLast
@@ -512,6 +598,7 @@ theorem getLast_takeDiag' (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ) (hi : i 
 
 abbrev putLastFun (delta : List ℕ) (i : ℕ) := delta.updateLast (· - (i + 1)) ++ [i + 1]
 
+/-- The action to add a new part smaller than every other part. -/
 def putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
     (hi : (i + 1) < x.delta.getLast (x.delta_ne_nil hn)) : FerrersDiagram (n + (i + 1)) where
   delta := putLastFun x.delta i
@@ -546,11 +633,13 @@ def putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
       simp
     · ring
 
+/-- `putLast` updates the last part. -/
 theorem getLast_putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
     (hi : (i + 1) < x.delta.getLast (x.delta_ne_nil hn)) :
     (x.putLast hn i hi).delta.getLast (delta_ne_nil (by simp) _) = i + 1 := by
   simp [putLast]
 
+/-- `putLast` increases or preserves `diagSize`. -/
 theorem diagSize_putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
     (hi : (i + 1) < x.delta.getLast (x.delta_ne_nil hn))
     (hlast : 1 < x.delta.getLast (x.delta_ne_nil hn)) :
@@ -563,6 +652,7 @@ theorem diagSize_putLast (hn : 0 < n) (x : FerrersDiagram n) (i : ℕ)
   rw [List.getLast_eq_getElem] at hlast
   exact hlast.ne.symm
 
+/-- The criteria to legally move the diagonal down -/
 def IsToDown (hn : 0 < n) (x : FerrersDiagram n) :=
   x.diagSize + 1 < x.delta.getLast (x.delta_ne_nil hn)
 
@@ -570,23 +660,17 @@ instance (hn : 0 < n) (x : FerrersDiagram n) : Decidable (x.IsToDown hn) := by
   unfold IsToDown
   infer_instance
 
-theorem pred_cast (p : (n : ℕ) → (0 < n) → (FerrersDiagram n) → Prop)
-    (hn : 0 < n) {m : ℕ} (x : FerrersDiagram m)
-    (h : m = n) :
-    p n hn (cast (congrArg _ h) x) ↔ p m (h ▸ hn) x := by
-  grind
-
-theorem down_size' (hn : 0 < n) (x : FerrersDiagram n)
+theorem diagSize_of_isToDown (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn) : x.diagSize + 1 < n := by
   apply lt_of_lt_of_le hdown
   apply x.getLast_delta_le_n hn
 
-theorem down_size (hn : 0 < n) (x : FerrersDiagram n)
+theorem diagSize_of_isToDown' (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn) :
     n = n - (x.diagSize + 1) + (x.diagSize + 1) :=
-  (Nat.sub_add_cancel (x.down_size' hn hdown).le).symm
+  (Nat.sub_add_cancel (x.diagSize_of_isToDown hn hdown).le).symm
 
-theorem diagSize_lt (hn : 0 < n) (x : FerrersDiagram n)
+theorem diagSize_lt_length (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn) : x.diagSize < x.delta.length := by
   unfold IsToDown at hdown
   by_contra!
@@ -599,67 +683,72 @@ theorem diagSize_lt (hn : 0 < n) (x : FerrersDiagram n)
     apply List.getLast_mem
   simp [hxlast] at hdown
 
-theorem delta_diagSize (hn : 0 < n) (x : FerrersDiagram n)
-    (hdown : x.IsToDown hn) : 1 < x.delta[x.diagSize]'(x.diagSize_lt hn hdown) := by
+theorem delta_diagSize (hn : 0 < n) (x : FerrersDiagram n) (hdown : x.IsToDown hn) :
+    1 < x.delta[x.diagSize]'(x.diagSize_lt_length hn hdown) := by
   by_contra!
-  have h1 : x.delta[x.diagSize]'(x.diagSize_lt hn hdown) = 1 :=
+  have h1 : x.delta[x.diagSize]'(x.diagSize_lt_length hn hdown) = 1 :=
     le_antisymm this (Nat.one_le_of_lt (List.forall_iff_forall_mem.mp x.delta_pos _ (by simp)))
-  obtain hdiagprop := (List.lengthWhile_eq_iff_of_lt_length (x.diagSize_lt hn hdown)).mp
+  obtain hdiagprop := (List.lengthWhile_eq_iff_of_lt_length
+    (x.diagSize_lt_length hn hdown)).mp
     (show x.diagSize = x.diagSize by rfl)
   exact hdiagprop.2 h1
 
-def down1 (hn : 0 < n) (x : FerrersDiagram n) (hdown : x.IsToDown hn) :
+/-- Specialize `takeDiag` to take precisely the 45 degree diagonal. -/
+def takeDiag' (hn : 0 < n) (x : FerrersDiagram n) (hdown : x.IsToDown hn) :
     FerrersDiagram (n - (x.diagSize + 1)) :=
-  x.takeDiag x.diagSize (x.diagSize_lt hn hdown) (x.delta_diagSize hn hdown)
+  x.takeDiag x.diagSize (x.diagSize_lt_length hn hdown) (x.delta_diagSize hn hdown)
 
 theorem diagSize_add_one_lt (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
-    x.diagSize + 1 < (x.down1 hn hdown).delta.getLast
-    (delta_ne_nil (Nat.zero_lt_sub_of_lt (x.down_size' hn hdown)) _) := by
-  obtain hlt | heq := lt_or_eq_of_le (Nat.le_sub_one_of_lt (x.diagSize_lt hn hdown))
+    x.diagSize + 1 < (x.takeDiag' hn hdown).delta.getLast
+    (delta_ne_nil (Nat.zero_lt_sub_of_lt (x.diagSize_of_isToDown hn hdown)) _) := by
+  obtain hlt | heq := lt_or_eq_of_le (Nat.le_sub_one_of_lt (x.diagSize_lt_length hn hdown))
   · unfold IsToDown at hdown
     convert hdown using 1
     apply getLast_takeDiag
     exact hlt
   · obtain hh := x.getLast_takeDiag' hn _ heq (x.delta_diagSize hn hdown)
-    unfold down1
-    rw [hh, heq, Nat.sub_add_cancel (Nat.one_le_of_lt (x.diagSize_lt hn hdown))]
+    unfold takeDiag'
+    rw [hh, heq, Nat.sub_add_cancel (Nat.one_le_of_lt (x.diagSize_lt_length hn hdown))]
     contrapose! hnegpen with hthis
     obtain hGetLastLeLength := Nat.le_add_of_sub_le hthis
     have hLengthLeGetLast : x.delta.length + 1 ≤ x.delta.getLast (x.delta_ne_nil hn) := by
-      obtain heq := (Nat.sub_eq_iff_eq_add (Nat.one_le_of_lt (x.diagSize_lt hn hdown))).mp heq.symm
+      obtain heq := (Nat.sub_eq_iff_eq_add
+        (Nat.one_le_of_lt (x.diagSize_lt_length hn hdown))).mp heq.symm
       rw [heq]
       exact Nat.add_one_le_iff.mpr hdown
     obtain hLengthEqGetLast := le_antisymm hGetLastLeLength hLengthLeGetLast
     refine ⟨hLengthEqGetLast, ?_⟩
     obtain hdiagprop := (List.lengthWhile_eq_iff_of_lt_length
-      (by simpa using Nat.zero_lt_of_lt (x.diagSize_lt hn hdown))).mp heq
+      (by simpa using Nat.zero_lt_of_lt (x.diagSize_lt_length hn hdown))).mp heq
     exact hdiagprop.1
 
+/-- The down action is defined as `takeDiag` then `putLast`. -/
 def down (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
     FerrersDiagram n := by
-  let lastPut := (x.down1 hn hdown).putLast (Nat.zero_lt_sub_of_lt (x.down_size' hn hdown))
+  let lastPut := (x.takeDiag' hn hdown).putLast
+    (Nat.zero_lt_sub_of_lt (x.diagSize_of_isToDown hn hdown))
     x.diagSize (x.diagSize_add_one_lt hn hdown hnegpen)
-  rw [x.down_size hn hdown]
+  rw [x.diagSize_of_isToDown' hn hdown]
   exact lastPut
 
 theorem delta_down (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
     (x.down hn hdown hnegpen).delta =
-    putLastFun (takeDiagFun x.delta x.diagSize (x.diagSize_lt hn hdown)) x.diagSize := by
+    putLastFun (takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown)) x.diagSize := by
   unfold down
   simp only [eq_mpr_eq_cast]
-  suffices ((x.down1 hn hdown).putLast (Nat.zero_lt_sub_of_lt (x.down_size' hn hdown))
+  suffices ((x.takeDiag' hn hdown).putLast (Nat.zero_lt_sub_of_lt (x.diagSize_of_isToDown hn hdown))
       x.diagSize (x.diagSize_add_one_lt hn hdown hnegpen)).delta =
-      putLastFun (takeDiagFun x.delta x.diagSize (x.diagSize_lt hn hdown)) x.diagSize by
+      putLastFun (takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown)) x.diagSize by
     convert this
-    · exact down_size hn x hdown
+    · exact diagSize_of_isToDown' hn x hdown
     · simp
-  simp [putLast, down1, takeDiag]
+  simp [putLast, takeDiag', takeDiag]
 
 theorem getLast_down (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
@@ -673,23 +762,31 @@ theorem length_down (hn : 0 < n) (x : FerrersDiagram n)
     (x.down hn hdown hnegpen).delta.length = x.delta.length + 1 := by
   simp [x.delta_down hn hdown hnegpen]
 
+private theorem pred_cast (p : (n : ℕ) → (0 < n) → (FerrersDiagram n) → Prop)
+    (hn : 0 < n) {m : ℕ} (x : FerrersDiagram m)
+    (h : m = n) :
+    p n hn (cast (congrArg _ h) x) ↔ p m (h ▸ hn) x := by
+  grind
+
+/-- Barring pentagonal configuration, doing `down` will make it illegal to `down`. -/
 theorem down_notToDown (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
     ¬ (x.down hn hdown hnegpen).IsToDown hn := by
   unfold down
   simp only [eq_mpr_eq_cast]
-  rw [pred_cast @IsToDown hn _ (x.down_size hn hdown).symm]
+  rw [pred_cast @IsToDown hn _ (x.diagSize_of_isToDown' hn hdown).symm]
   unfold IsToDown
   rw [getLast_putLast]
   simp only [add_lt_add_iff_right, not_lt]
-  refine le_trans ?_ (diagSize_putLast (Nat.zero_lt_sub_of_lt (x.down_size' hn hdown))
+  refine le_trans ?_ (diagSize_putLast (Nat.zero_lt_sub_of_lt (x.diagSize_of_isToDown hn hdown))
     _ _ ?_ ?_)
-  · apply List.lengthWhile_set _ _ (x.diagSize_lt hn hdown)
-    exact ((List.lengthWhile_eq_iff_of_lt_length (x.diagSize_lt hn hdown)).mp rfl).2
+  · apply List.lengthWhile_set _ _ (x.diagSize_lt_length hn hdown)
+    exact ((List.lengthWhile_eq_iff_of_lt_length (x.diagSize_lt_length hn hdown)).mp rfl).2
   · exact x.diagSize_add_one_lt hn hdown hnegpen
   · exact lt_of_le_of_lt (by simp) (x.diagSize_add_one_lt hn hdown hnegpen)
 
+/-- Non-pentagonal configuration will not be positive-pentagonal after `down`. -/
 theorem down_notPosPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
@@ -699,10 +796,11 @@ theorem down_notPosPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   intro h
   rw [getLast_down, length_down]
   by_contra!
-  obtain hlt := x.diagSize_lt hn hdown
+  obtain hlt := x.diagSize_lt_length hn hdown
   simp only [Nat.add_right_cancel_iff] at this
   simp [this] at hlt
 
+/-- Non-pentagonal configuration will not be negative-pentagonal after `down`. -/
 theorem down_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
@@ -712,13 +810,14 @@ theorem down_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   intro h
   rw [getLast_down, length_down]
   by_contra!
-  obtain hlt := x.diagSize_lt hn hdown
+  obtain hlt := x.diagSize_lt_length hn hdown
   simp only [Nat.add_right_cancel_iff] at this
   simp [this] at hlt
 
 abbrev takeLastFun (delta : List ℕ) (h : delta ≠ []) :=
   (delta.take (delta.length - 1)).updateLast (· + delta.getLast h)
 
+/-- The inverse of `putLast` -/
 def takeLast (hn : 0 < n) (x : FerrersDiagram n) :
     FerrersDiagram (n - x.delta.getLast (x.delta_ne_nil hn)) where
   delta := takeLastFun x.delta (x.delta_ne_nil hn)
@@ -788,6 +887,7 @@ theorem length_takeLast (hn : 0 < n) (x : FerrersDiagram n) :
 
 abbrev putDiagFun (delta : List ℕ) (i : ℕ) (hi : i < delta.length) := delta.set i (delta[i] + 1)
 
+/-- The inverse of `takeDiag`. -/
 def putDiag (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.length)
     : FerrersDiagram (n + (i + 1)) where
   delta := putDiagFun x.delta i hi
@@ -811,7 +911,7 @@ def putDiag (x : FerrersDiagram n) (i : ℕ) (hi : i < x.delta.length)
       rw [← x.delta_sum]
     simp
 
-theorem up_size (hn : 0 < n) (x : FerrersDiagram n) :
+theorem aux_up_size (hn : 0 < n) (x : FerrersDiagram n) :
     n - x.delta.getLast (x.delta_ne_nil hn) + (x.delta.getLast (x.delta_ne_nil hn) - 1 + 1) =
     n := by
   rw [Nat.sub_add_cancel (by
@@ -821,7 +921,7 @@ theorem up_size (hn : 0 < n) (x : FerrersDiagram n) :
   )]
   rw [Nat.sub_add_cancel (getLast_delta_le_n hn x)]
 
-theorem up_getLast_lt' (hn : 0 < n) (x : FerrersDiagram n)
+theorem getLast_lt_of_notToDown (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn) (hpospen : ¬ x.IsPosPentagonal hn) :
     x.delta.getLast (x.delta_ne_nil hn) < x.delta.length := by
   rw [IsToDown, not_lt] at hdown
@@ -853,20 +953,21 @@ theorem up_getLast_lt' (hn : 0 < n) (x : FerrersDiagram n)
   obtain hwhat := h.trans_lt hlt
   simp at hwhat
 
-theorem up_getLast_lt (hn : 0 < n) (x : FerrersDiagram n)
+theorem getLast_lt_of_notToDown' (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn) (hpospen : ¬ x.IsPosPentagonal hn) :
     x.delta.getLast (x.delta_ne_nil hn) - 1 < (x.takeLast hn).delta.length := by
   apply Nat.sub_one_lt_of_le (List.forall_iff_forall_mem.mp x.delta_pos _ (by simp))
   rw [length_takeLast]
   apply Nat.le_sub_one_of_lt
-  apply x.up_getLast_lt' hn hdown hpospen
+  apply x.getLast_lt_of_notToDown hn hdown hpospen
 
+/-- The inverse of `down`. -/
 def up (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) : FerrersDiagram n := by
   let diagPut := (x.takeLast hn).putDiag (x.delta.getLast (x.delta_ne_nil hn) - 1)
-    (x.up_getLast_lt hn hdown hpospen)
-  rw [x.up_size hn] at diagPut
+    (x.getLast_lt_of_notToDown' hn hdown hpospen)
+  rw [x.aux_up_size hn] at diagPut
   exact diagPut
 
 theorem delta_up (hn : 0 < n) (x : FerrersDiagram n)
@@ -874,14 +975,14 @@ theorem delta_up (hn : 0 < n) (x : FerrersDiagram n)
     (hpospen : ¬ x.IsPosPentagonal hn) :
     (x.up hn hdown hpospen).delta =
     putDiagFun (takeLastFun x.delta (x.delta_ne_nil hn))
-    (x.delta.getLast (x.delta_ne_nil hn) - 1) (x.up_getLast_lt hn hdown hpospen) := by
+    (x.delta.getLast (x.delta_ne_nil hn) - 1) (x.getLast_lt_of_notToDown' hn hdown hpospen) := by
   unfold up
   suffices ((x.takeLast hn).putDiag (x.delta.getLast (x.delta_ne_nil hn) - 1)
-      (x.up_getLast_lt hn hdown hpospen)).delta =
+      (x.getLast_lt_of_notToDown' hn hdown hpospen)).delta =
       putDiagFun (takeLastFun x.delta (x.delta_ne_nil hn))
-      (x.delta.getLast (x.delta_ne_nil hn) - 1) (x.up_getLast_lt hn hdown hpospen) by
+      (x.delta.getLast (x.delta_ne_nil hn) - 1) (x.getLast_lt_of_notToDown' hn hdown hpospen) by
     convert this
-    · exact (up_size hn x).symm
+    · exact (aux_up_size hn x).symm
     · simp
   simp [putDiag, takeLast]
 
@@ -1027,6 +1128,7 @@ theorem getLast_up (hn : 0 < n) (x : FerrersDiagram n)
     simp
   · simpa using hh
 
+/-- Barring pentagonal configuration, doing `up` will make it legal to do `down`. -/
 theorem up_isToDown (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) :
@@ -1046,6 +1148,9 @@ theorem length_up (hn : 0 < n) (x : FerrersDiagram n)
     (x.up hn hdown hpospen).delta.length = x.delta.length - 1 := by
   simp [delta_up]
 
+/-- Non-pentagonal configuration will not be pentagonal after doing `up`.
+
+Here we disprove the common condition of both pos- and neg- pentagonal. -/
 theorem up_notPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn)
@@ -1074,7 +1179,7 @@ theorem up_notPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   have hsetlast' : x.delta.length - 1 = x.delta.getLast (x.delta_ne_nil hn) := by
     apply le_antisymm hsetlast
     apply Nat.le_sub_one_of_lt
-    apply x.up_getLast_lt' hn hdown hpospen
+    apply x.getLast_lt_of_notToDown hn hdown hpospen
   have hll : x.delta.length = x.delta.getLast (x.delta_ne_nil hn)  + 1 := by
     refine Nat.eq_add_of_sub_eq ?_ hsetlast'
     apply Nat.one_le_of_lt
@@ -1168,6 +1273,7 @@ theorem takeDiagFun_putDiagFun (delta : List ℕ) (i : ℕ) (hi : i < delta.leng
     takeDiagFun (putDiagFun delta i hi) i (by simpa using hi) = delta := by
   simp [takeDiagFun, putDiagFun]
 
+/-- `up` is the left inverse of `down`. -/
 theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : x.IsToDown hn)
     (hnegpen : ¬ x.IsNegPentagonal hn) :
@@ -1176,13 +1282,13 @@ theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
   ext1
   simp_rw [delta_up, delta_down]
 
-  have h1 : takeDiagFun x.delta x.diagSize (x.diagSize_lt hn hdown) ≠ [] := by
+  have h1 : takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown) ≠ [] := by
     simpa using x.delta_ne_nil hn
 
   have h2 : x.diagSize + 1 ≤
-      (takeDiagFun x.delta x.diagSize (x.diagSize_lt hn hdown)).getLast h1 := by
+      (takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown)).getLast h1 := by
     obtain h := x.diagSize_add_one_lt hn hdown hnegpen
-    unfold down1 takeDiag at h
+    unfold takeDiag' takeDiag at h
     exact h.le
 
   conv in (takeLastFun _ _) =>
@@ -1196,6 +1302,7 @@ theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
 
   simp [h3]
 
+/-- `up` is the right inverse of `down`. -/
 theorem down_up (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) :
@@ -1206,6 +1313,14 @@ theorem down_up (hn : 0 < n) (x : FerrersDiagram n)
   simp_rw [diagSize_up]
   rw [takeDiagFun_putDiagFun]
   rw [putLastFun_takeLastFun _ _ x.delta_pos]
+
+/-! ## Up/down involution
+
+We now combine both `up` and `down` into one function `bij`, selecting the operation based on
+which way is legal. We notice that in either way the parity of `delta.length` is changed,
+so this provides a bijection between even and odd non-pentagonal configurations.
+
+-/
 
 theorem parity_up (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
@@ -1223,6 +1338,7 @@ theorem parity_down (hn : 0 < n) (x : FerrersDiagram n)
   rw [Nat.even_add']
   simp
 
+/-- `bij` is either `up` or `down`, depending on which way is legal. -/
 def bij (hn : 0 < n) (x : FerrersDiagram n)
     (hpospen : ¬ x.IsPosPentagonal hn) (hnegpen : ¬ x.IsNegPentagonal hn) :
     FerrersDiagram n :=
@@ -1247,9 +1363,11 @@ theorem bij_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   · apply down_notNegPentagonal
   · apply up_notNegPentagonal
 
+/-- Type of all non-pentagonal Ferrers diagrams. -/
 abbrev NpFerrers (hn : 0 < n) :=
   {x : FerrersDiagram n // ¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn}
 
+/-- `bij` as a function on `NpFerrers`. -/
 abbrev bijNp {hn : 0 < n} (x : NpFerrers hn) : NpFerrers hn :=
   ⟨x.val.bij hn x.prop.1 x.prop.2, by apply bij_notPosPentagonal, by apply bij_notNegPentagonal⟩
 
@@ -1270,7 +1388,9 @@ theorem parity_bijNp {hn : 0 < n} (x : NpFerrers hn) :
   · apply parity_down
   · apply parity_up
 
+/-- Even non-pentagonal configurations. -/
 abbrev NpEven (hn : 0 < n) := {x : NpFerrers hn | Even x.val.delta.length}
+/-- Odd non-pentagonal configurations. -/
 abbrev NpOdd (hn : 0 < n) := {x : NpFerrers hn | ¬ Even x.val.delta.length}
 
 theorem NpEven_eq (hn : 0 < n) : NpEven hn =
@@ -1294,6 +1414,7 @@ theorem NpFerrers_card_eq (hn : 0 < n) : (NpEven hn).ncard = (NpOdd hn).ncard :=
     · simp
     · exact (parity_bijNp x).mpr h
 
+/-- The numer of even and odd configurations, barring pentagonal ones, are equal. -/
 theorem card_eq (hn : 0 < n) :
     {x : FerrersDiagram n |
       (¬ x.IsPosPentagonal hn ∧ ¬ x.IsNegPentagonal hn) ∧ Even x.delta.length}.ncard =
@@ -1303,12 +1424,14 @@ theorem card_eq (hn : 0 < n) :
   · rw [NpEven_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
   · rw [NpOdd_eq, Set.ncard_subtype, Set.inter_comm, ← Set.setOf_and]
 
+/-! # Translate Ferrers diagram to distinct partition -/
+
+/-- Unbundled function that calculates parts from delta. -/
 def foldDelta : List ℕ → List ℕ
 | [] => []
 | x :: xs => match foldDelta xs with
   | [] => [x]
   | x' :: xs' => (x' + x) :: x' :: xs'
-
 
 @[simp]
 theorem foldDelta_eq_nil {l : List ℕ} : foldDelta l = [] ↔ l = [] :=
@@ -1425,6 +1548,7 @@ theorem mergeSort_foldDelta (l : List ℕ) :
   apply List.mergeSort_eq_self
   apply foldDelta_sorted
 
+/-- Unbundled function that calculates delta from parts. -/
 def unfoldDelta : List ℕ → List ℕ
 | [] => []
 | [x] => [x]
@@ -1518,6 +1642,8 @@ theorem Multiset.qind {α : Type*} {motive : Multiset α → Prop}
   Quotient.ind mk
 
 variable (n) in
+/-- Correspondence between `FerrersDiagram n` and `Nat.Partition.distincts n`,
+which also preserves parity. -/
 def equivPartitionDistincts : FerrersDiagram n ≃ Nat.Partition.distincts n where
   toFun x := ⟨{
     parts := foldDelta x.delta
@@ -1574,6 +1700,7 @@ theorem equivPartitionDistincts_symm_even (x : Nat.Partition.distincts n) :
     Even ((equivPartitionDistincts n).symm x).delta.length ↔ Even x.val.parts.card := by
   simp [equivPartitionDistincts]
 
+/-- The difference between even and odd partitions is reduced to pentagonal cases. -/
 theorem card_sub (hn : 0 < n) :
     ({x : FerrersDiagram n | Even x.delta.length}.ncard -
     {x : FerrersDiagram n | ¬ Even x.delta.length}.ncard : ℤ) =
@@ -1628,6 +1755,7 @@ theorem Finset.sum_range_id_mul_two' (n : ℕ) :
   · push_cast [h]
     rfl
 
+/-- Calculation of `n` for negative pentagonal case. -/
 theorem negpenSum {k : ℕ} (hk : 0 < k) :
     2 * ((List.map (fun p ↦ p.1 * p.2) ((List.replicate (k - 1) 1 ++ [k + 1]).zipIdx 1)).sum : ℕ) =
     ((-k) * (3 * (-k) - 1) : ℤ) := by
@@ -1657,6 +1785,7 @@ theorem negpenSum {k : ℕ} (hk : 0 < k) :
   push_cast [hk]
   ring
 
+/-- Calculation of `n` for positive pentagonal case. -/
 theorem pospenSum {k : ℕ} (hk : 0 < k) :
     2 * ((List.map (fun p ↦ p.1 * p.2) ((List.replicate (k - 1) 1 ++ [k]).zipIdx 1)).sum : ℕ) =
     (k * (3 * k - 1) : ℤ) := by
@@ -1686,7 +1815,7 @@ theorem pospenSum {k : ℕ} (hk : 0 < k) :
   push_cast [hk]
   ring
 
-
+/-- For positive pentagonal case, `delta.length = k`. -/
 theorem IsPosPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
     (hpospen : x.IsPosPentagonal hn) :
     (2 * n : ℤ) = x.delta.length * (3 * x.delta.length - 1) := by
@@ -1703,6 +1832,7 @@ theorem IsPosPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
   rw [hrep]
   rw [pospenSum (List.length_pos_iff.mpr (x.delta_ne_nil hn))]
 
+/-- For negative pentagonal case, `delta.length = -k`. -/
 theorem IsNegPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
     (hpospen : x.IsNegPentagonal hn) :
     (2 * n : ℤ) = (-x.delta.length) * (3 * (-x.delta.length) - 1) := by
@@ -1719,6 +1849,7 @@ theorem IsNegPentagonal.two_n_eq (hn : 0 < n) (x : FerrersDiagram n)
   rw [hrep]
   rw [negpenSum (List.length_pos_iff.mpr (x.delta_ne_nil hn))]
 
+/-- In summary, pentagonal case always gives a pentagonal number `n`. -/
 theorem pentagonal_exists_k (hn : 0 < n) (x : FerrersDiagram n)
     (hpen : x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) :
     ∃ k : ℤ, 2 * n = k * (3 * k - 1) ∧ (Even x.delta.length ↔ Even k) := by
@@ -1732,6 +1863,7 @@ theorem pentagonal_exists_k (hn : 0 < n) (x : FerrersDiagram n)
     · apply IsNegPentagonal.two_n_eq hn x h
     · simp
 
+/-- The converse: pentagonal number `n` gives a pentagonal case. -/
 theorem pentagonal_of_exists_k (hn : 0 < n) {k : ℤ} (h : 2 * n = k * (3 * k - 1)) :
     ∃ x : FerrersDiagram n, x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn := by
   obtain hneg | rfl | hpos := lt_trichotomy k 0
@@ -1780,20 +1912,7 @@ theorem pentagonal_of_exists_k (hn : 0 < n) {k : ℤ} (h : 2 * n = k * (3 * k - 
         have hi : i < k.toNat - 1 := by simpa using hi
         simp [hi]
 
-theorem pentagonal_unique {x y : ℤ} (h : x * (3 * x - 1) = y * (3 * y - 1)) : x = y := by
-  simp_rw [mul_sub_one] at h
-  rw [sub_eq_sub_iff_sub_eq_sub] at h
-  rw [mul_left_comm x, mul_left_comm y] at h
-  rw [← mul_sub] at h
-  rw [mul_self_sub_mul_self] at h
-  rw [← mul_assoc] at h
-  rw [← sub_eq_zero, ← sub_one_mul] at h
-  rw [mul_eq_zero] at h
-  obtain h | h := h
-  · obtain h' := Int.eq_of_mul_eq_one <| eq_of_sub_eq_zero h
-    simp [← h'] at h
-  · exact eq_of_sub_eq_zero h
-
+/-- There is at most one pentagonal case for a given `n`. -/
 theorem pentagonal_subsingleton (hn : 0 < n) :
     {x : FerrersDiagram n | (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn)}.Subsingleton := by
   intro a ha b hb
@@ -1801,7 +1920,7 @@ theorem pentagonal_subsingleton (hn : 0 < n) :
   obtain ha | ha := ha <;> obtain hb | hb := hb
   · obtain ha' := IsPosPentagonal.two_n_eq hn a ha
     obtain hb' := IsPosPentagonal.two_n_eq hn b hb
-    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    obtain h := two_pentagonal_inj <| ha'.symm.trans hb'
     norm_cast at h
     ext1
     apply List.ext_getElem h
@@ -1820,17 +1939,17 @@ theorem pentagonal_subsingleton (hn : 0 < n) :
       exact h
   · obtain ha' := IsPosPentagonal.two_n_eq hn a ha
     obtain hb' := IsNegPentagonal.two_n_eq hn b hb
-    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    obtain h := two_pentagonal_inj <| ha'.symm.trans hb'
     simp only [Nat.cast_eq_neg_cast, List.length_eq_zero_iff] at h
     exact False.elim <| a.delta_ne_nil hn h.1
   · obtain ha' := IsNegPentagonal.two_n_eq hn a ha
     obtain hb' := IsPosPentagonal.two_n_eq hn b hb
-    obtain h := pentagonal_unique <| hb'.symm.trans ha'
+    obtain h := two_pentagonal_inj <| hb'.symm.trans ha'
     simp only [Nat.cast_eq_neg_cast, List.length_eq_zero_iff] at h
     exact False.elim <| a.delta_ne_nil hn h.2
   · obtain ha' := IsNegPentagonal.two_n_eq hn a ha
     obtain hb' := IsNegPentagonal.two_n_eq hn b hb
-    obtain h := pentagonal_unique <| ha'.symm.trans hb'
+    obtain h := two_pentagonal_inj <| ha'.symm.trans hb'
     simp only [neg_inj, Nat.cast_inj] at h
     ext1
     apply List.ext_getElem h
@@ -1848,6 +1967,8 @@ theorem pentagonal_subsingleton (hn : 0 < n) :
       rw [ha.1, hb.1]
       simpa using h
 
+/-- Third definition of $\phi$: coefficients represents the existence of even and odd
+pentagonal partition. -/
 theorem phiCoeff_eq_card_sub (hn : 0 < n) :
     phiCoeff n =
     {x : FerrersDiagram n |
@@ -1861,7 +1982,7 @@ theorem phiCoeff_eq_card_sub (hn : 0 < n) :
     rw [two_pentagonal] at hk
     obtain ⟨x, hx⟩ := pentagonal_of_exists_k hn hk.symm
     obtain ⟨k', hk', hkeven⟩ := pentagonal_exists_k hn x hx
-    obtain rfl := pentagonal_unique (hk.trans hk')
+    obtain rfl := two_pentagonal_inj (hk.trans hk')
     have hsingle : {x | (IsPosPentagonal hn x ∨ IsNegPentagonal hn x)} = {x} := by
       refine Set.eq_singleton_iff_nonempty_unique_mem.mpr ⟨⟨x, hx⟩, ?_⟩
       intro y hy
@@ -1930,6 +2051,10 @@ theorem phiCoeff_eq_card_sub (hn : 0 < n) :
 
 end FerrersDiagram
 
+/-! ## Final connection -/
+
+/-- Forth definition: of $\phi$: coefficients represents the difference of
+even and odd partitions. -/
 def phiCoeff' (n : ℕ) := ∑ s ∈ Nat.Partition.distincts n, (-1) ^ s.parts.card
 
 theorem phiCoeff_eq (n : ℕ) : phiCoeff n = phiCoeff' n := by
@@ -1989,7 +2114,7 @@ theorem PowerSeries.prod_monomial {R : Type*} [CommRing R] {ι : Type*} [Decidab
   | insert a s ha h =>
     simp [ha, h, monomil_mul_monomial]
 
-
+/-- The multiplication formula of $\phi(x)$ expands precisely to the partition formula. -/
 theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1))
     (PowerSeries.mk (phiCoeff' ·)) := by
   unfold HasProd
@@ -2067,7 +2192,7 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1
 
 open PowerSeries
 
--- ∏' (n : ℕ+), (1 - x ^ n) = ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k - 1) / 2)
+/-- Conclusion -/
 theorem pentagonalNumberTheorem :
     ∏' (n : ℕ+), (1 - monomial ℤ n 1) =
     ∑' (k : ℤ), monomial ℤ (k * (3 * k - 1) / 2).toNat ((-1) ^ k : ℤˣ) := by
@@ -2076,5 +2201,3 @@ theorem pentagonalNumberTheorem :
   simp_rw [← phiCoeff_eq]
   rw [← phi]
   exact hasSum_phi.tsum_eq
-
-#print axioms pentagonalNumberTheorem
