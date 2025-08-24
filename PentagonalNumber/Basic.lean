@@ -6,15 +6,18 @@ import Mathlib
 
 This file proves the
 [pentagonal number theorem](https://en.wikipedia.org/wiki/Pentagonal_number_theorem)
-in terms of formal power series:
+at `pentagonalNumberTheorem` in terms of formal power series:
 
 $$\prod_{n=1}^{\infty} (1 - x^n) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
 
 following Franklin's bijective proof presented on the wikipedia page. This polynomial,
-regarded as a complex-valued function, is also known as the Euler function $\phi(x)$
+regarded as a complex-valued function, is also known as the Euler function $\phi(x)$.
 
-## Main theorem
-* `pentagonalNumberTheorem`
+This file also proves the recurrence relation of the partition function as a corollary
+at `partitionFunctionSum`:
+
+$$\sum_{k \in \mathbb{Z}} (-1)^k p(n - k(3k-1)/2) = 0 \quad (n > 0)$$
+
 
 -/
 
@@ -2190,9 +2193,11 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1
     simp [this]
   · simp [f]
 
-open PowerSeries
+open PowerSeries in
+/-- Pentagonal number theorem
 
-/-- Conclusion -/
+$$\prod_{n=1}^{\infty} (1 - x^n) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
+-/
 theorem pentagonalNumberTheorem :
     ∏' (n : ℕ+), (1 - monomial ℤ n 1) =
     ∑' (k : ℤ), monomial ℤ (k * (3 * k - 1) / 2).toNat ((-1) ^ k : ℤˣ) := by
@@ -2201,3 +2206,411 @@ theorem pentagonalNumberTheorem :
   simp_rw [← phiCoeff_eq]
   rw [← phi]
   exact hasSum_phi.tsum_eq
+
+namespace Multiset
+@[simp]
+lemma mem_sum' {α ι : Type*} {a : α} {s : Finset ι} {m : ι → Multiset α} :
+    a ∈ ∑ i ∈ s, m i ↔ ∃ i ∈ s, a ∈ m i := by
+  induction s using Finset.cons_induction <;> simp [*]
+
+end Multiset
+
+
+theorem hasProd_card_partition :
+    HasProd (fun (n : ℕ+) ↦ PowerSeries.mk (fun m ↦ if n.val ∣ m then 1 else 0))
+    (PowerSeries.mk fun n ↦ (Fintype.card (Nat.Partition n) : ℤ)) := by
+  unfold HasProd
+  rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
+  intro n
+  apply tendsto_atTop_of_eventually_const (i₀ := Finset.Icc 1 (n.toPNat'))
+  intro s hs
+  rw [PowerSeries.coeff_mk]
+  rw [PowerSeries.coeff_prod]
+  simp_rw [PowerSeries.coeff_mk]
+  simp_rw [Finset.prod_ite_zero]
+  simp_rw [Finset.prod_const_one]
+  simp_rw [Finset.sum_boole]
+  simp only [Nat.cast_inj]
+
+  let f (y : ℕ+ →₀ ℕ) (hx : y ∈ {x ∈ s.finsuppAntidiag n | ∀ i ∈ s, i.val ∣ x i}) :
+      n.Partition :=
+    {
+      parts := y.sum (fun n s ↦ Multiset.replicate (s / n) n)
+      parts_pos := by
+        intro a ha
+        unfold Finsupp.sum at ha
+        simp only [Multiset.mem_sum', Finsupp.mem_support_iff, ne_eq, Multiset.mem_replicate,
+          Nat.div_eq_zero_iff, PNat.ne_zero, false_or, not_lt] at ha
+        obtain ⟨b, hb0, hb, rfl⟩ := ha
+        simp
+      parts_sum := by
+        unfold Finsupp.sum
+        rw [Multiset.sum_sum]
+        simp_rw [Multiset.sum_replicate, smul_eq_mul]
+        simp only [Finset.mem_filter, Finset.mem_finsuppAntidiag] at hx
+        obtain ⟨⟨hsum, hsupport⟩, hdvd⟩ := hx
+        rw [Finset.sum_subset hsupport (by
+          suffices ∀ a ∈ s, y a = 0 → y a < a by simpa
+          intro a _ ha
+          simp [ha]
+        )]
+        rw [← hsum]
+        apply Finset.sum_congr rfl
+        intro a ha
+        exact Nat.div_mul_cancel (hdvd a ha)
+    }
+
+  let g (x : n.Partition) (_ : x ∈ Finset.univ) : ℕ+ →₀ ℕ := Finsupp.mk
+    (x.parts.map Nat.toPNat').toFinset (fun n ↦ x.parts.count n.val * n) (by
+      intro n
+      suffices (∃ a ∈ x.parts, a.toPNat' = n) ↔ n.val ∈ x.parts by simpa
+      constructor
+      · rintro ⟨a, ha, rfl⟩
+        simpa [x.parts_pos ha] using ha
+      · intro hn
+        use n.val
+        simpa using hn
+    )
+
+  let e : ℕ+ ↪ ℕ := Function.Embedding.subtype _
+  unfold Fintype.card
+  refine Finset.card_bij' f g (by simp) ?_ ?_ ?_
+  · intro p _
+    suffices ∑ n_1 ∈ s, Multiset.count (↑n_1) p.parts * ↑n_1 = n
+      ∧ (Multiset.map Nat.toPNat' p.parts).toFinset ⊆ s by simpa [g]
+    constructor
+    · conv => right; rw [← p.parts_sum]
+      simp_rw [← smul_eq_mul]
+      rw [Finset.sum_multiset_count p.parts]
+      have : ∑ x ∈ s, Multiset.count x.val p.parts • x.val =
+          ∑ x ∈ Finset.map e s, Multiset.count (↑x) p.parts • ↑x :=
+        (Finset.sum_map s e fun x ↦ Multiset.count x p.parts • x).symm
+      rw [this]
+      have hsubset : p.parts.toFinset ⊆ Finset.map e s := by
+        intro a
+        simp only [Multiset.mem_toFinset, Finset.mem_map, e]
+        intro ha
+        use ⟨a, p.parts_pos ha⟩
+        constructor
+        · apply Finset.mem_of_subset hs
+          simp only [Finset.mem_Icc, PNat.one_le, true_and]
+          rw [← Subtype.coe_le_coe]
+          simp only
+          suffices a ≤ n by
+            apply le_trans this
+            obtain rfl | hn0 := Nat.eq_zero_or_pos n
+            · simp
+            · change n ≤ n.toPNat' -- defeq abuse
+              simp [hn0.lt]
+          rw [← p.parts_sum]
+          apply Multiset.le_sum_of_mem ha
+        · simp [Function.Embedding.subtype] -- defeq abuse?
+      refine (Finset.sum_subset hsubset ?_).symm
+      intro a ha ha'
+      rw [Multiset.count_eq_zero.mpr (by simpa using ha')]
+      simp
+    · refine Finset.Subset.trans ?_ hs
+      intro a
+      suffices ∀ x ∈ p.parts, x.toPNat' = a → a ≤ n.toPNat' by simpa
+      rintro x hx rfl
+      suffices x ≤ n by -- Extract this
+        obtain rfl | hx0 := Nat.eq_zero_or_pos x
+        · simp
+        · apply (PNat.coe_le_coe _ _).mp
+          simpa [hx0, hx0.trans_le this] using this
+      rw [← p.parts_sum]
+      apply Multiset.le_sum_of_mem hx
+  · intro x hx
+    ext n
+    suffices Multiset.count n.val (x.sum fun n s ↦ Multiset.replicate (s / n) n) * n = x n by
+      simpa [f, g]
+    unfold Finsupp.sum
+    suffices (if x n = 0 then 0 else x n / n * n) = x n by
+      simpa [Multiset.count_sum', Multiset.count_replicate]
+    split_ifs with h
+    · simp [h]
+    · refine Nat.div_mul_cancel ?_
+      simp only [Finset.mem_filter, Finset.mem_finsuppAntidiag] at hx
+      obtain ⟨⟨hsum, hsupport⟩, hdvd⟩ := hx
+      apply hdvd
+      apply Finset.mem_of_subset hsupport
+      simpa using h
+  · intro x _
+    ext n
+    simp only [f, g]
+    unfold Finsupp.sum
+    rw [Multiset.count_sum']
+    suffices (∑ y ∈ (Multiset.map Nat.toPNat' x.parts).toFinset,
+        if y = n then Multiset.count y.val x.parts else 0) = Multiset.count n x.parts by
+      simpa [Multiset.count_sum', Multiset.count_replicate]
+
+    have : (∑ y ∈ (Multiset.map Nat.toPNat' x.parts).toFinset,
+        if y = n then Multiset.count y.val x.parts else 0) =
+        (∑ y ∈ Finset.map e (Multiset.map Nat.toPNat' x.parts).toFinset,
+        if y = n then Multiset.count y x.parts else 0) :=
+      (Finset.sum_map _ e fun y ↦ if y = n then Multiset.count y x.parts else 0).symm
+    rw [this]
+    suffices (∀ x_1 ∈ x.parts, e x_1.toPNat' ≠ n) → 0 = Multiset.count n x.parts by simpa
+    intro h
+    symm
+    contrapose! h
+    use n
+    constructor
+    · exact Multiset.count_ne_zero.mp h
+    · simp only [Function.Embedding.subtype, Function.Embedding.coeFn_mk, e]
+      change n.toPNat' = n -- defeq
+      have : 0 < n := by
+        have hmem : n ∈ x.parts := by simpa using h
+        exact x.parts_pos hmem
+      simp [this]
+
+theorem hasProd_card_partition_mul_phiCoeff :
+    HasProd (fun (n : ℕ+) ↦
+      (PowerSeries.mk (fun m ↦ if n.val ∣ m then (1 : ℤ) else 0)) *
+      (1 - PowerSeries.monomial ℤ n 1))
+    ((PowerSeries.mk fun n ↦ (Fintype.card (Nat.Partition n) : ℤ)) *
+      (PowerSeries.mk (phiCoeff' ·))) :=
+  HasProd.mul hasProd_card_partition eularPhi
+
+theorem PowerSeries.mk_mul_monomial {R : Type} [Semiring R] (f : ℕ → R) (n : ℕ) (a : R) :
+    PowerSeries.mk f * PowerSeries.monomial R n a =
+    PowerSeries.mk (fun k ↦ if n ≤ k then (f (k - n)) * a else 0) := by
+  ext k
+  rw [PowerSeries.coeff_mul]
+  simp_rw [PowerSeries.coeff_monomial]
+  simp only [coeff_mk, mul_ite, mul_zero]
+  rw [Finset.sum_ite, Finset.sum_const_zero, add_zero]
+  split_ifs with h
+  · rw [show f (k - n) * a = f (k - n, n).1 * a by simp]
+    apply Finset.sum_eq_single_of_mem
+    · simp [h]
+    · suffices ∀ (s b : ℕ), s + b = k → b = n → (s = k - n → b ≠ n) → f s * a = 0
+        by simpa
+      intro s b h1 h2 h3
+      refine (h3 ?_ h2).elim
+      rw [← h1, h2]
+      simp
+  · convert Finset.sum_empty
+    rw [Finset.eq_empty_iff_forall_notMem]
+    intro a
+    suffices a.1 + a.2 = k → a.2 ≠ n by simpa
+    intro h2
+    apply ne_of_lt
+    apply lt_of_le_of_lt ?_ (by simpa using h)
+    simp [← h2]
+
+theorem geo_mul_one_sub (n : ℕ+) :
+    (PowerSeries.mk (fun m ↦ if n.val ∣ m then (1 : ℤ) else 0)) *
+    (1 - PowerSeries.monomial ℤ n 1) = 1 := by
+  rw [mul_one_sub]
+  rw [PowerSeries.mk_mul_monomial]
+  simp_rw [mul_one]
+  ext k
+  suffices ((if n.val ∣ k then (1 : ℤ) else 0) -
+    if n ≤ k then if n.val ∣ k - n then 1 else 0 else 0) = if k = 0 then 1 else 0 by simpa
+  by_cases hk : k = 0
+  · simp [hk]
+  · simp only [hk, ↓reduceIte]
+    rw [sub_eq_zero]
+    by_cases hn : n ≤ k
+    · simp only [hn, ↓reduceIte]
+      have :  n.val ∣ k ↔ n.val ∣ k - n.val := by
+        symm
+        apply Nat.dvd_sub_iff_left hn (by simp)
+      exact if_ctx_congr this (congrFun rfl) (congrFun rfl)
+    · suffices ¬n.val ∣ k by simpa [hn]
+      apply Nat.not_dvd_of_pos_of_lt
+      · exact Nat.zero_lt_of_ne_zero hk
+      · simpa using hn
+
+theorem card_partition_mul_phiCoeff :
+    (PowerSeries.mk fun n ↦ (Fintype.card (Nat.Partition n) : ℤ)) *
+    (PowerSeries.mk (phiCoeff ·)) = 1 := by
+  obtain h := hasProd_card_partition_mul_phiCoeff
+  simp_rw [geo_mul_one_sub] at h
+  simp_rw [← phiCoeff_eq] at h
+  obtain h := h.tprod_eq
+  symm
+  simpa using h
+
+/-- Set of integer $k$ such that $n - k(3k-1)/2 ≥ 0$. -/
+def kSet (n : ℤ) : Finset ℤ :=
+  Finset.Icc (-(((pentagonalDelta n).sqrt - 1) / 6)) (((pentagonalDelta n).sqrt + 1) / 6)
+
+theorem Int.le_sqrt {m n : ℤ} (hn : 0 ≤ n) :
+    -n.sqrt ≤ m ∧ m ≤ n.sqrt ↔ m ^ 2 ≤ n := by
+  have hn : n = n.toNat := eq_natCast_toNat.mpr hn
+  rw [hn]
+  simp_rw [Int.sqrt_natCast]
+  obtain h | h := le_total 0 m
+  · have hm : m = m.toNat := eq_natCast_toNat.mpr h
+    rw [hm, ← Int.natCast_pow, Nat.cast_le, Nat.cast_le, Nat.le_sqrt']
+    simp
+  · have hm : m = -(-m).toNat := by
+      rw [Int.eq_neg_comm]
+      symm
+      apply eq_natCast_toNat.mpr
+      simpa using h
+    rw [hm, neg_sq, ← Int.natCast_pow, neg_le_neg_iff, Nat.cast_le, Nat.cast_le, Nat.le_sqrt']
+    simp [-ofNat_toNat]
+
+theorem mem_kSet_iff {n k : ℤ} :
+    k ∈ kSet n ↔ pentagonal k ≤ n := by
+  obtain hneg | hpos := lt_or_ge n 0
+  · trans False
+    · simp only [kSet, pentagonalDelta, Finset.mem_Icc, iff_false]
+      by_contra! h
+      obtain h' := h.1.trans h.2
+      have : (1 + 24 * n).toNat = 0 := by
+        simp only [Int.toNat_eq_zero]
+        linarith
+      simp [Int.sqrt, this] at h'
+    · simp only [false_iff, not_le]
+      exact hneg.trans_le (pentagonal_nonneg k)
+  symm
+  calc
+    pentagonal k ≤ n ↔ 12 * (2 * pentagonal k) ≤ 24 * n := by
+      rw [← mul_assoc]
+      norm_num
+    _ ↔ 36 * k ^ 2 - 12 * k ≤ 24 * n := by
+      rw [two_pentagonal]
+      ring_nf
+    _ ↔ 36 * k ^ 2 - 12 * k + 1 ≤ 24 * n + 1 := (Int.add_le_add_iff_right 1).symm
+    _ ↔ (6 * k - 1) ^ 2 ≤ 1 + 24 * n := by ring_nf
+    _ ↔ -(1 + 24 * n).sqrt ≤ 6 * k - 1 ∧ 6 * k - 1 ≤ (1 + 24 * n).sqrt :=
+      (Int.le_sqrt (by linarith)).symm
+    _ ↔ (-k) * 6 ≤ (1 + 24 * n).sqrt - 1 ∧ k * 6 ≤ (1 + 24 * n).sqrt + 1 := by
+      grind
+    _ ↔ -k ≤ ((1 + 24 * n).sqrt - 1) / 6 ∧ k ≤ ((1 + 24 * n).sqrt + 1) / 6 := by
+      rw [Int.le_ediv_iff_mul_le (by simp)]
+      rw [Int.le_ediv_iff_mul_le (by simp)]
+    _ ↔ - (((1 + 24 * n).sqrt - 1) / 6) ≤ k ∧ k ≤ ((1 + 24 * n).sqrt + 1) / 6 := by
+      grind
+    _ ↔ k ∈ kSet n := by
+      simp [kSet, pentagonalDelta]
+
+/--
+The recurrence relation of (non-distinct) partition function $p(n)$:
+
+$$\sum_{k \in \mathbb{Z}} (-1)^k p(n - k(3k-1)/2) = 0 \quad (n > 0)$$
+
+Note that this is a finite sum, as the term for $k$ outside $n - k(3k-1)/2 ≥ 0$ vanishes.
+Here we explicitly restrict the set of $k$.
+-/
+theorem partitionFunctionSum (n : ℕ) (hn : n ≠ 0) :
+    ∑ k ∈ kSet n, ((-1) ^ k : ℤˣ) *
+    (Fintype.card (Nat.Partition (n - (k * (3 * k - 1) / 2).toNat)) : ℤ) = 0 := by
+  obtain h := card_partition_mul_phiCoeff
+
+  apply_fun PowerSeries.coeff ℤ n at h
+  have h' : ∑ x ∈ Finset.antidiagonal n, phiCoeff x.2 * (Fintype.card x.1.Partition) = 0 := by
+    conv in fun x ↦ _ =>
+      ext x
+      rw [mul_comm]
+    simpa [hn, PowerSeries.coeff_mul] using h
+  have h'' : ∑ m ∈ Finset.Icc (0 : ℤ) n,
+      phiCoeff m * (Fintype.card (n - m.toNat).Partition) = 0 := by
+    convert h'
+    let f (m : ℤ) (_ : m ∈ Finset.Icc (0 : ℤ) n) : ℕ × ℕ := ⟨n - m.toNat, m.toNat⟩
+    let g (x : ℕ × ℕ) (_ : x ∈ Finset.antidiagonal n) : ℤ := x.2
+    refine Finset.sum_bij' f g ?_ ?_ ?_ ?_ ?_
+    · suffices ∀ (a : ℤ), 0 ≤ a → a ≤ n → n - a.toNat + a.toNat = n by simpa [f]
+      grind
+    · suffices ∀ (a b : ℕ), a + b = n → b ≤ n by simpa [g]
+      grind
+    · suffices ∀ (a : ℤ), 0 ≤ a → a ≤ n → 0 ≤ a by simpa [f, g]
+      grind
+    · suffices ∀ (a b : ℕ), a + b = n → n - b = a by simpa [f, g]
+      grind
+    · suffices ∀ (a : ℤ), 0 ≤ a → a ≤ n → phiCoeff a = phiCoeff (max a 0) by simpa [f]
+      grind
+
+  refine Eq.trans ?_ h''
+
+  classical
+  have hfilter : ∑ m ∈ Finset.Icc (0 : ℤ) n, phiCoeff m * (Fintype.card (n - m.toNat).Partition)
+      = ∑ m ∈ Finset.Icc (0 : ℤ) n with m ∈ Set.range pentagonal,
+      phiCoeff m * (Fintype.card (n - m.toNat).Partition) := by
+    rw [Finset.sum_filter]
+    apply Finset.sum_congr rfl
+    intro n hn
+    suffices n ∉ Set.range pentagonal → phiCoeff n = 0 by simpa
+    exact (phiCoeff_eq_zero_iff n).mpr
+  rw [hfilter]
+  refine Finset.sum_bij (fun k _ ↦ pentagonal k) ?_ ?_ ?_ ?_
+  · simp [pentagonal_nonneg, mem_kSet_iff]
+  · suffices ∀ a₁ ∈ kSet ↑n, ∀ a₂ ∈ kSet ↑n, pentagonal a₁ = pentagonal a₂ → a₁ = a₂ by simpa
+    intro _ _ _ _ h
+    exact pentagonal_injective h
+  · suffices ∀ (b : ℤ), 0 ≤ b → b ≤ n → ∀ (x : ℤ), pentagonal x = b →
+      ∃ a, pentagonal a ≤ n ∧ pentagonal a = b by simpa [mem_kSet_iff]
+    intro b h0b hb x hx
+    use x
+    simp [hx, hb]
+  · intro a ha
+    simp only
+    rw [phiCoeff_pentagonal]
+    rfl
+
+/-
+
+theorem eularPhi_complex {x : ℂ} (h : ‖x‖ < 1) :
+    HasProd (fun (n : ℕ+) ↦ (1 - x ^ (n : ℕ))) (∑' (n : ℕ), phiCoeff' n * x ^ n) := by
+  have hrw : (fun (n : ℕ+) ↦ (1 - x ^ (n : ℕ))) = fun (n : ℕ+) ↦ (1 + (-1) * x ^ (n : ℕ)) := by
+    ext n
+    grind
+  rw [hrw]
+  unfold HasProd
+  simp_rw [Finset.prod_one_add]
+  simp_rw [Finset.prod_mul_distrib]
+  simp_rw [Finset.prod_const]
+  simp_rw [Finset.prod_pow_eq_pow_sum]
+
+  have : (fun (s : Finset ℕ+) ↦ ∑ p ∈ s.powerset, (-1) ^ p.card * x ^ (∑ n ∈ p, n : ℕ))
+    = (fun (s : Finset ℕ+) ↦
+      ∑ n ∈ Finset.range (s.sum (↑) + 1), ∑ p ∈ s.powerset with p.sum (↑) = n,
+        (-1) ^ p.card * x ^ (p.sum (↑) : ℕ)) := by
+    ext s
+    symm
+    apply Finset.sum_fiberwise_of_maps_to
+    intro p hp
+    rw [Finset.mem_range]
+    apply Nat.lt_add_one_of_le
+    apply Finset.sum_le_sum_of_subset
+    exact Finset.mem_powerset.mp hp
+  rw [this]
+
+  have : (fun (s : Finset ℕ+) ↦
+      ∑ n ∈ Finset.range (s.sum (↑) + 1), ∑ p ∈ s.powerset with p.sum (↑) = n,
+        (-1) ^ p.card * x ^ (p.sum (↑) : ℕ)) =
+      (fun (s : Finset ℕ+) ↦
+      ∑ n ∈ Finset.range (s.sum (↑) + 1), ∑ p ∈ s.powerset with p.sum (↑) = n,
+        (-1) ^ p.card * x ^ n) := by
+    ext s
+    apply Finset.sum_congr rfl
+    intro p hp
+    apply Finset.sum_congr rfl
+    intro n hn
+    rw [Finset.mem_filter] at hn
+    rw [hn.2]
+  rw [this]
+  simp_rw [← Finset.sum_mul]
+
+  have : (fun (s : Finset ℕ+) ↦ ∑ n ∈ Finset.range (s.sum (↑) + 1),
+      (∑ p ∈ s.powerset with p.sum (↑) = n, (-1) ^ p.card) * x ^ n) =
+      (fun (s : Finset ℕ+) ↦ ∑' (n : ℕ),
+      (∑ p ∈ s.powerset with p.sum (↑) = n, (-1) ^ p.card) * x ^ n)
+     := sorry
+  rw [this]
+
+  --apply tendsto_tsum_of_dominated_convergence
+
+  sorry
+
+theorem pentagonalNumberTheorem_complex {x : ℂ} (h : ‖x‖ < 1) :
+    ∏' (n : ℕ+), (1 - x ^ (n : ℕ)) =
+    ∑' (k : ℤ), ((-1) ^ k) * x ^ (k * (3 * k - 1) / 2) := by
+
+
+  sorry
+-/
