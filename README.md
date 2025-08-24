@@ -1,5 +1,5 @@
 # Pentagonal Number Theorem
 
-[Documentation](https://wwylele.github.io/PentagonalNumberTheorem/docs/)
+[![Documentation](https://img.shields.io/badge/Documentation-passing-green)](https://wwylele.github.io/PentagonalNumberTheorem/docs/)
 
 Formalization of [pentagonal number theorem](https://en.wikipedia.org/wiki/Pentagonal_number_theorem)
