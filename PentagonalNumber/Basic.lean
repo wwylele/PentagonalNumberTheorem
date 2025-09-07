@@ -163,7 +163,7 @@ def phi : PowerSeries ℤ := PowerSeries.mk (phiCoeff ·)
 
 /-- The second definition of $\phi(x)$, summing over terms with pentagonal exponents directly. -/
 theorem hasSum_phi :
-    HasSum (fun k ↦ PowerSeries.monomial ℤ (pentagonal k).toNat k.negOnePow) phi := by
+    HasSum (fun k ↦ PowerSeries.monomial (pentagonal k).toNat (k.negOnePow : ℤ)) phi := by
   obtain h := PowerSeries.hasSum_of_monomials_self phi
   nth_rw 1 [phi] at h
   simp_rw [PowerSeries.coeff_mk] at h
@@ -182,7 +182,7 @@ theorem hasSum_phi :
     rw [← Int.eq_natCast_toNat.mpr (pentagonal_nonneg b)] at h
     apply pentagonal_injective h
   have hrange (x : ℕ) (hx : x ∉ Set.range fun k ↦ (pentagonal k).toNat) :
-      PowerSeries.monomial ℤ x (phiCoeff x) = 0 := by
+      PowerSeries.monomial x (phiCoeff x) = 0 := by
     have hx: (x : ℤ) ∉ Set.range pentagonal := by
       contrapose! hx
       obtain ⟨y, hy⟩ := hx
@@ -2102,23 +2102,8 @@ theorem phiCoeff_eq (n : ℕ) : phiCoeff n = phiCoeff' n := by
     · simp
     · simp
 
-theorem PowerSeries.monomil_mul_monomial {R : Type*} [Semiring R] (m n : ℕ) (a b : R) :
-    monomial R m a * monomial R n b = monomial R (m + n) (a * b) := by
-  unfold monomial
-  convert MvPowerSeries.monomial_mul_monomial (Finsupp.single () m) (Finsupp.single () n) a b
-  simp
-
-theorem PowerSeries.prod_monomial {R : Type*} [CommRing R] {ι : Type*} [DecidableEq ι]
-    (s : Finset ι) (f : ι → ℕ) (g : ι → R) :
-    ∏ i ∈ s, monomial R (f i) (g i) =
-    monomial R (∑ i ∈ s, f i) (∏ i ∈ s, g i) := by
-  induction s using Finset.induction with
-  | empty => simp
-  | insert a s ha h =>
-    simp [ha, h, monomil_mul_monomial]
-
 /-- The multiplication formula of $\phi(x)$ expands precisely to the partition formula. -/
-theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1))
+theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial n (1 : ℤ)))
     (PowerSeries.mk (phiCoeff' ·)) := by
   unfold HasProd
   rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
@@ -2129,7 +2114,7 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial ℤ n 1
   simp_rw [sub_eq_add_neg]
   rw [Finset.prod_one_add]
   rw [map_sum]
-  have (i : ℕ+) : -(PowerSeries.monomial ℤ i) 1 = (PowerSeries.monomial ℤ i (-1)) := by simp
+  have (i : ℕ+) : -PowerSeries.monomial i 1 = (PowerSeries.monomial i (-1)) := by simp
   simp_rw [this]
   simp_rw [PowerSeries.prod_monomial]
   simp_rw [Finset.prod_const]
@@ -2199,22 +2184,13 @@ open PowerSeries in
 $$\prod_{n=1}^{\infty} (1 - x^n) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
 -/
 theorem pentagonalNumberTheorem :
-    ∏' (n : ℕ+), (1 - monomial ℤ n 1) =
-    ∑' (k : ℤ), monomial ℤ (k * (3 * k - 1) / 2).toNat ((-1) ^ k : ℤˣ) := by
+    ∏' (n : ℕ+), (1 - monomial n (1 : ℤ)) =
+    ∑' (k : ℤ), monomial (k * (3 * k - 1) / 2).toNat (((-1) ^ k : ℤˣ) : ℤ) := by
   apply HasProd.tprod_eq
   convert eularPhi
   simp_rw [← phiCoeff_eq]
   rw [← phi]
   exact hasSum_phi.tsum_eq
-
-namespace Multiset
-@[simp]
-lemma mem_sum' {α ι : Type*} {a : α} {s : Finset ι} {m : ι → Multiset α} :
-    a ∈ ∑ i ∈ s, m i ↔ ∃ i ∈ s, a ∈ m i := by
-  induction s using Finset.cons_induction <;> simp [*]
-
-end Multiset
-
 
 theorem hasProd_card_partition :
     HasProd (fun (n : ℕ+) ↦ PowerSeries.mk (fun m ↦ if n.val ∣ m then 1 else 0))
@@ -2239,7 +2215,7 @@ theorem hasProd_card_partition :
       parts_pos := by
         intro a ha
         unfold Finsupp.sum at ha
-        simp only [Multiset.mem_sum', Finsupp.mem_support_iff, ne_eq, Multiset.mem_replicate,
+        simp only [Multiset.mem_sum, Finsupp.mem_support_iff, ne_eq, Multiset.mem_replicate,
           Nat.div_eq_zero_iff, PNat.ne_zero, false_or, not_lt] at ha
         obtain ⟨b, hb0, hb, rfl⟩ := ha
         simp
@@ -2367,13 +2343,13 @@ theorem hasProd_card_partition :
 theorem hasProd_card_partition_mul_phiCoeff :
     HasProd (fun (n : ℕ+) ↦
       (PowerSeries.mk (fun m ↦ if n.val ∣ m then (1 : ℤ) else 0)) *
-      (1 - PowerSeries.monomial ℤ n 1))
+      (1 - PowerSeries.monomial n 1))
     ((PowerSeries.mk fun n ↦ (Fintype.card (Nat.Partition n) : ℤ)) *
       (PowerSeries.mk (phiCoeff' ·))) :=
   HasProd.mul hasProd_card_partition eularPhi
 
 theorem PowerSeries.mk_mul_monomial {R : Type} [Semiring R] (f : ℕ → R) (n : ℕ) (a : R) :
-    PowerSeries.mk f * PowerSeries.monomial R n a =
+    PowerSeries.mk f * PowerSeries.monomial n a =
     PowerSeries.mk (fun k ↦ if n ≤ k then (f (k - n)) * a else 0) := by
   ext k
   rw [PowerSeries.coeff_mul]
@@ -2401,7 +2377,7 @@ theorem PowerSeries.mk_mul_monomial {R : Type} [Semiring R] (f : ℕ → R) (n :
 
 theorem geo_mul_one_sub (n : ℕ+) :
     (PowerSeries.mk (fun m ↦ if n.val ∣ m then (1 : ℤ) else 0)) *
-    (1 - PowerSeries.monomial ℤ n 1) = 1 := by
+    (1 - PowerSeries.monomial n 1) = 1 := by
   rw [mul_one_sub]
   rw [PowerSeries.mk_mul_monomial]
   simp_rw [mul_one]
@@ -2437,23 +2413,6 @@ theorem card_partition_mul_phiCoeff :
 def kSet (n : ℤ) : Finset ℤ :=
   Finset.Icc (-(((pentagonalDelta n).sqrt - 1) / 6)) (((pentagonalDelta n).sqrt + 1) / 6)
 
-theorem Int.le_sqrt {m n : ℤ} (hn : 0 ≤ n) :
-    -n.sqrt ≤ m ∧ m ≤ n.sqrt ↔ m ^ 2 ≤ n := by
-  have hn : n = n.toNat := eq_natCast_toNat.mpr hn
-  rw [hn]
-  simp_rw [Int.sqrt_natCast]
-  obtain h | h := le_total 0 m
-  · have hm : m = m.toNat := eq_natCast_toNat.mpr h
-    rw [hm, ← Int.natCast_pow, Nat.cast_le, Nat.cast_le, Nat.le_sqrt']
-    simp
-  · have hm : m = -(-m).toNat := by
-      rw [Int.eq_neg_comm]
-      symm
-      apply eq_natCast_toNat.mpr
-      simpa using h
-    rw [hm, neg_sq, ← Int.natCast_pow, neg_le_neg_iff, Nat.cast_le, Nat.cast_le, Nat.le_sqrt']
-    simp [-ofNat_toNat]
-
 theorem mem_kSet_iff {n k : ℤ} :
     k ∈ kSet n ↔ pentagonal k ≤ n := by
   obtain hneg | hpos := lt_or_ge n 0
@@ -2477,8 +2436,8 @@ theorem mem_kSet_iff {n k : ℤ} :
       ring_nf
     _ ↔ 36 * k ^ 2 - 12 * k + 1 ≤ 24 * n + 1 := (Int.add_le_add_iff_right 1).symm
     _ ↔ (6 * k - 1) ^ 2 ≤ 1 + 24 * n := by ring_nf
-    _ ↔ -(1 + 24 * n).sqrt ≤ 6 * k - 1 ∧ 6 * k - 1 ≤ (1 + 24 * n).sqrt :=
-      (Int.le_sqrt (by linarith)).symm
+    _ ↔ |6 * k - 1| ≤ (1 + 24 * n).sqrt := (Int.abs_le_sqrt_iff_sq_le (by linarith)).symm
+    _ ↔ -(1 + 24 * n).sqrt ≤ 6 * k - 1 ∧ 6 * k - 1 ≤ (1 + 24 * n).sqrt := abs_le
     _ ↔ (-k) * 6 ≤ (1 + 24 * n).sqrt - 1 ∧ k * 6 ≤ (1 + 24 * n).sqrt + 1 := by
       grind
     _ ↔ -k ≤ ((1 + 24 * n).sqrt - 1) / 6 ∧ k ≤ ((1 + 24 * n).sqrt + 1) / 6 := by
@@ -2502,7 +2461,7 @@ theorem partitionFunctionSum (n : ℕ) (hn : n ≠ 0) :
     (Fintype.card (Nat.Partition (n - (k * (3 * k - 1) / 2).toNat)) : ℤ) = 0 := by
   obtain h := card_partition_mul_phiCoeff
 
-  apply_fun PowerSeries.coeff ℤ n at h
+  apply_fun PowerSeries.coeff n at h
   have h' : ∑ x ∈ Finset.antidiagonal n, phiCoeff x.2 * (Fintype.card x.1.Partition) = 0 := by
     conv in fun x ↦ _ =>
       ext x
