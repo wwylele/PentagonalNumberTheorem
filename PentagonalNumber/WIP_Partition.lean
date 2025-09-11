@@ -21,14 +21,6 @@ noncomputable
 def genFun (f : ℕ+ → ℕ → M) : M⟦X⟧ :=
   PowerSeries.mk fun n ↦ ∑ p : n.Partition, ∏ᶠ i : ℕ+, f i (p.parts.count i.val)
 
-namespace Multiset
-@[simp]
-lemma mem_sum'' {α ι : Type*} {a : α} {s : Finset ι} {m : ι → Multiset α} :
-    a ∈ ∑ i ∈ s, m i ↔ ∃ i ∈ s, a ∈ m i := by
-  induction s using Finset.cons_induction <;> simp [*]
-
-end Multiset
-
 namespace PNat
 
 def embedNat : ℕ+ ↪ ℕ := Function.Embedding.subtype _
@@ -60,7 +52,7 @@ theorem hasProd_genFun [TopologicalSpace M]
     parts_pos := by
       intro a ha
       unfold Finsupp.sum at ha
-      simp only [Multiset.mem_sum'', Finsupp.mem_support_iff, ne_eq, Multiset.mem_replicate,
+      simp only [Multiset.mem_sum, Finsupp.mem_support_iff, ne_eq, Multiset.mem_replicate,
         Nat.div_eq_zero_iff, PNat.ne_zero, false_or, not_lt] at ha
       obtain ⟨b, hb0, hb, rfl⟩ := ha
       simp

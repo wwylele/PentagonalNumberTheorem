@@ -1,2 +1,3 @@
 import PentagonalNumber.Basic
+import PentagonalNumber.Approach2
 import PentagonalNumber.WIP_Partition
