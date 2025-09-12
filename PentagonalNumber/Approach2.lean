@@ -17,7 +17,13 @@ open scoped PowerSeries.WithPiTopology
 
 namespace PowerSeries
 
-variable {R : Type*} [TopologicalSpace R] [Semiring R]
+variable {R : Type*}
+
+theorem order_neg [Ring R] (a : R⟦X⟧) : (-a).order = a.order := by
+  simp_rw [PowerSeries.order_eq, map_neg, neg_eq_zero, neg_ne_zero]
+  rw [← PowerSeries.order_eq]
+
+variable [TopologicalSpace R] [Semiring R]
 
 theorem WithPiTopology.has_sum_iff {ι : Type*} (f : ι → R⟦X⟧) (a : R⟦X⟧) :
     HasSum f a ↔ ∀ n, HasSum (fun i ↦ coeff n (f i)) (coeff n a) := by
@@ -242,9 +248,9 @@ theorem A1 (u : PowerSeries ℤ) (h : HasSum (AN_term 1) u) :
 theorem pentagonal_rec {n : ℕ} (hn : 0 < n) :
     ∀ {u : PowerSeries ℤ}, HasSum (AN_term n) u →
     HasProd (fun n ↦ 1 - X ^ (n + 1))
-    (1 + ∑ k ∈ Finset.range n, ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    (1 + ∑ k ∈ Finset.range n, ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) +
-      X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (u - 1)) := by
+      X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (u - 1)) := by
   induction n, hn using Nat.le_induction with
   | base =>
     intro u h
@@ -258,9 +264,8 @@ theorem pentagonal_rec {n : ℕ} (hn : 0 < n) :
     rw [Finset.sum_range_succ]
     simp_rw [add_assoc]
     congr
-    push_cast
-    have : (Int.negOnePow (n + 1)) = (-Int.negOnePow n : ℤ⟦X⟧) := by
-      rw [Int.negOnePow_succ]
+    have : ((-1) ^ (n + 1)) = (-(-1) ^ n : ℤ⟦X⟧) := by
+      rw [npow_add]
       simp
     simp_rw [this]
     have : 3 * (n + 1) + 1 = 3 * n + 4 := by ring
@@ -283,24 +288,20 @@ theorem pentagonal_rec {n : ℕ} (hn : 0 < n) :
 
 theorem pentagonal_const {m n : ℕ} (hm : 0 < m) (hn : 0 < n) {u v : ℤ⟦X⟧}
     (hu : HasSum (AN_term m) u) (hv : HasSum (AN_term n) v) :
-    (1 + ∑ k ∈ Finset.range m, ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    (1 + ∑ k ∈ Finset.range m, ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) +
-      X ^ (m * (3 * m + 1) / 2) * (Int.negOnePow m : ℤ⟦X⟧) * (u - 1)) =
-    (1 + ∑ k ∈ Finset.range n, ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+      X ^ (m * (3 * m + 1) / 2) * ((-1) ^ m) * (u - 1)) =
+    (1 + ∑ k ∈ Finset.range n, ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) +
-      X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (v - 1)) :=
+      X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (v - 1)) :=
   HasProd.unique (pentagonal_rec hm hu) (pentagonal_rec hn hv)
 
-theorem term_order (k : ℕ) : ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+theorem term_order (k : ℕ) : ((-1 : ℤ⟦X⟧) ^ (k + 1) *
     (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))).order =
     ↑((k + 1) * (3 * k + 2) / 2) := by
   simp_rw [PowerSeries.order_mul]
-  have (k : ℕ) : (Int.negOnePow (k + 1) : ℤ⟦X⟧).order = 0 := by  -- ehh
-    apply PowerSeries.order_zero_of_unit
-    rw [isUnit_iff_exists]
-    use (Int.negOnePow (k + 1) : ℤ⟦X⟧)
-    norm_cast
-    simp
+  have (k : ℕ) : ((-1) ^ (k + 1) : ℤ⟦X⟧).order = 0 := by
+    simp [order_pow, order_neg]
   simp_rw [this, zero_add]
   have hdvd (k : ℕ) : 2 ∣ (k + 1) * (3 * k + 4) := by
     obtain heven | hodd := Nat.even_or_odd k
@@ -315,11 +316,11 @@ theorem term_order (k : ℕ) : ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
   simpa using (this k).le
 
 theorem pentagonal_lim (u : ℤ⟦X⟧) (v : ℕ → ℤ⟦X⟧)
-    (hu : HasSum (fun (k : ℕ) ↦ ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    (hu : HasSum (fun (k : ℕ) ↦ ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)))) u) :
-    Filter.Tendsto (fun n ↦ (1 + ∑ k ∈ Finset.range n, ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    Filter.Tendsto (fun n ↦ (1 + ∑ k ∈ Finset.range n, ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) +
-      X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (v n - 1)))
+      X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (v n - 1)))
       Filter.atTop (nhds (1 + u)) := by
   rw [WithPiTopology.tendsto_iff_coeff_tendsto]
   intro n
@@ -355,27 +356,25 @@ theorem pentagonal_lim (u : ℤ⟦X⟧) (v : ℕ → ℤ⟦X⟧)
   apply Nat.mul_le_mul <;> linarith
 
 theorem pentagonal_lim_eq {u : ℤ⟦X⟧} {v : ℕ → ℤ⟦X⟧}
-    (hu : HasSum (fun (k : ℕ) ↦ ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    (hu : HasSum (fun (k : ℕ) ↦ ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)))) u)
     {n : ℕ} (hn : 0 < n) (hv : ∀ n, 0 < n → HasSum (AN_term n) (v n)) :
-    (1 + ∑ k ∈ Finset.range n, ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+    (1 + ∑ k ∈ Finset.range n, ((-1) ^ (k + 1) *
       (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) +
-      X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (v n - 1)) =
+      X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (v n - 1)) =
     1 + u := by
   obtain hlim := pentagonal_lim u v hu
 
-  have : (fun n ↦
-      1 +
-          ∑ k ∈ Finset.range n,
-            (Int.negOnePow (k + 1) : ℤ⟦X⟧) * (X ^ ((k + 1) * (3 * k + 2) / 2) +
-            X ^ ((k + 1) * (3 * k + 4) / 2)) +
-        X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (v n - 1)) =ᶠ[Filter.atTop]
-      (fun _ ↦
-      1 +
-          ∑ k ∈ Finset.range n,
-            (Int.negOnePow (k + 1) : ℤ⟦X⟧) * (X ^ ((k + 1) * (3 * k + 2) / 2) +
-            X ^ ((k + 1) * (3 * k + 4) / 2)) +
-        X ^ (n * (3 * n + 1) / 2) * (Int.negOnePow n : ℤ⟦X⟧) * (v n - 1)) := by
+  have : (fun n ↦ 1 +
+        ∑ k ∈ Finset.range n,
+          (-1) ^ (k + 1) * (X ^ ((k + 1) * (3 * k + 2) / 2) +
+          X ^ ((k + 1) * (3 * k + 4) / 2)) +
+        X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (v n - 1)) =ᶠ[Filter.atTop]
+      (fun _ ↦ 1 +
+        ∑ k ∈ Finset.range n,
+          (-1) ^ (k + 1) * (X ^ ((k + 1) * (3 * k + 2) / 2) +
+          X ^ ((k + 1) * (3 * k + 4) / 2)) +
+        X ^ (n * (3 * n + 1) / 2) * (-1) ^ n * (v n - 1)) := by
     unfold Filter.EventuallyEq
     rw [Filter.eventually_atTop]
     use 1
@@ -385,7 +384,7 @@ theorem pentagonal_lim_eq {u : ℤ⟦X⟧} {v : ℕ → ℤ⟦X⟧}
   rw [Filter.tendsto_congr' this] at hlim
   exact tendsto_nhds_unique tendsto_const_nhds hlim
 
-theorem pentagonal_inf (u : ℤ⟦X⟧) (hu : HasSum (fun (k : ℕ) ↦ (Int.negOnePow (k + 1) : ℤ⟦X⟧) *
+theorem pentagonal_inf (u : ℤ⟦X⟧) (hu : HasSum (fun (k : ℕ) ↦ (-1) ^ (k + 1) *
     (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) u) :
     HasProd (fun n ↦ 1 - X ^ (n + 1)) (1 + u) := by
   choose f hf using AN_summable
@@ -397,11 +396,10 @@ theorem pentagonal_inf (u : ℤ⟦X⟧) (hu : HasSum (fun (k : ℕ) ↦ (Int.neg
   exact pentagonal_lim_eq hu (by simp) hf'
 
 theorem summable_pentagonal :
-    Summable (fun (k : ℕ) ↦ ((Int.negOnePow (k + 1) : ℤ⟦X⟧) *
-      (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)))) := by
+    Summable (fun (k : ℕ) ↦ ((-1 : ℤ⟦X⟧) ^ (k + 1) *
+    (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)))) := by
   apply WithPiTopology.summable_of_order_tendsto_atTop_atTop
-  simp_rw [term_order]
-  simp_rw [ENat.tendsto_nhds_top_iff_natCast_lt, Filter.eventually_atTop]
+  simp_rw [term_order, ENat.tendsto_nhds_top_iff_natCast_lt, Filter.eventually_atTop]
   intro k
   use k
   intro a ha
@@ -415,15 +413,15 @@ theorem summable_pentagonal :
   simp
 
 theorem pentagonalNumberTheorem_hasProd :
-    HasProd (fun n ↦ (1 : ℤ⟦X⟧) - X ^ (n + 1))
-      (1 + ∑' k : ℕ, (Int.negOnePow (k + 1) : ℤ⟦X⟧) *
-      (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) := by
+    HasProd (fun n ↦ (1 - X ^ (n + 1)  : ℤ⟦X⟧))
+    (1 + ∑' k : ℕ, (-1) ^ (k + 1) *
+    (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2))) := by
   apply pentagonal_inf
   apply summable_pentagonal.hasSum
 
 /-- Pentagonal number theorem -/
 theorem pentagonalNumberTheorem_prod_eq :
-    ∏' n, ((1 : ℤ⟦X⟧) - X ^ (n + 1)) =
-      1 + ∑' k : ℕ, (Int.negOnePow (k + 1) : ℤ⟦X⟧) *
-      (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)) := by
+    (∏' n, (1 - X ^ (n + 1)) : ℤ⟦X⟧) =
+    1 + ∑' k : ℕ, (-1) ^ (k + 1) *
+    (X ^ ((k + 1) * (3 * k + 2) / 2) + X ^ ((k + 1) * (3 * k + 4) / 2)) := by
   exact pentagonalNumberTheorem_hasProd.tprod_eq
