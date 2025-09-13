@@ -334,8 +334,6 @@ theorem pentagonal_lim (u : ℤ⟦X⟧) (v : ℕ → ℤ⟦X⟧)
     apply hi.trans_lt
     apply Nat.lt_of_add_one_le
     rw [Nat.le_div_iff_mul_le (by simp)]
-    obtain rfl | h0 := Nat.eq_zero_or_pos i
-    · simp
     apply Nat.mul_le_mul_left
     linarith
   simp only [PowerSeries.coeff_X_pow_mul', not_le.mpr hni, ↓reduceIte, add_zero]

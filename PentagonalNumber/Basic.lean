@@ -1376,7 +1376,7 @@ abbrev bijNp {hn : 0 < n} (x : NpFerrers hn) : NpFerrers hn :=
 
 @[simp]
 theorem bijNp_bijNp {hn : 0 < n} (x : NpFerrers hn) : bijNp (bijNp x) = x := by
-  apply Subtype.ext_val
+  apply Subtype.ext
   simp only [bij]
   split_ifs with hdown hdown2 hdown2
   · exact False.elim <| (x.val.down_notToDown hn hdown _) hdown2
