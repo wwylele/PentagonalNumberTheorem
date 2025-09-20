@@ -12,7 +12,7 @@ https://math.stackexchange.com/questions/55738/how-to-prove-eulers-pentagonal-th
 
 -/
 
-open PowerSeries
+open PowerSeries Filter
 open scoped PowerSeries.WithPiTopology
 
 section HasProd
@@ -30,7 +30,7 @@ theorem hasProd_one_add_of_hasSum_prod {f : ι → α} {a : α} (h : HasSum (∏
     exact Finset.prod_one_add s
   rw [this]
   apply h.comp
-  rw [Filter.tendsto_atTop_atTop]
+  rw [tendsto_atTop_atTop]
   intro t
   use t.sup id
   intro u hu v hv
@@ -102,7 +102,7 @@ variable [TopologicalSpace R] [CommSemiring R]
 
 theorem WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
     {ι : Type*} [LinearOrder ι] [LocallyFiniteOrderBot ι] {f : ι → R⟦X⟧}
-    (h : Filter.Tendsto (fun i ↦ (f i).order) Filter.atTop (nhds ⊤)) :
+    (h : Tendsto (fun i ↦ (f i).order) atTop (nhds ⊤)) :
     Multipliable (fun i ↦ 1 + f i) := by
   obtain hempty | hempty := isEmpty_or_nonempty ι
   · apply multipliable_empty
@@ -110,7 +110,7 @@ theorem WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
   rw [summable_iff_summable_coeff]
   intro n
   apply summable_of_finite_support
-  simp_rw [ENat.tendsto_nhds_top_iff_natCast_lt, Filter.eventually_atTop] at h
+  simp_rw [ENat.tendsto_nhds_top_iff_natCast_lt, eventually_atTop] at h
   obtain ⟨i, hi⟩ := h n
   apply Set.Finite.subset (Finset.finite_toSet (Finset.Iio i).powerset)
   suffices ∀ (s : Finset ι), (coeff n) (∏ i ∈ s, f i) ≠ 0 → ↑s ⊆ Set.Iio i by simpa
@@ -151,7 +151,7 @@ theorem summable_γ [TopologicalSpace R] (N : ℕ) : Summable (γ R N) := by
 
 /-- And a second auxiliary sequence
 
-$$ ψ_{N, n} = x^{(N+1)n} (x^{2N + n + 3} - 1) \prod_{i=0}^{n} 1 - x^{N + i + 2} $$ -/
+$$ ψ_{N, n} = x^{(N+1)n} (x^{2N + n + 3} - 1) \prod_{i=0}^{n-1} 1 - x^{N + i + 2} $$ -/
 noncomputable
 def ψ (N n : ℕ) : PowerSeries R :=
   X ^ ((N + 1) * n) * (X ^ (2 * N + n + 3) - 1) * ∏ i ∈ Finset.range n, (1 - X ^ (N + i + 2))
@@ -176,7 +176,7 @@ theorem ψ_sub_ψ (N n : ℕ) :
   rw [Finset.prod_range_succ]
   ring_nf
 
-/-- This $Γ$ has recurrence formlua
+/-- By summing with telescoping, we get a recurrence formlua for $Γ$
 
 $$ Γ_{N} = 1 - x^{2N + 3} - x^{3N + 5}Γ_{N + 1} $$
 -/
@@ -189,7 +189,7 @@ theorem γ_rec [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Spac
   apply HasSum.tsum_eq
   rw [((summable_γ R _).add ((summable_γ R _).mul_left _)).hasSum_iff_tendsto_nat]
   simp_rw [ψ_sub_ψ, Finset.sum_range_sub]
-  apply Filter.Tendsto.sub_const
+  apply Tendsto.sub_const
   rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
   intro n
   apply tendsto_atTop_of_eventually_const (i₀ := n + 1)
@@ -203,7 +203,7 @@ theorem multipliable_pentagonalLhs [Nontrivial R] [TopologicalSpace R] :
     Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + 1)) := by
   simp_rw [sub_eq_add_neg]
   apply PowerSeries.WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
-  refine ENat.tendsto_nhds_top_iff_natCast_lt.mpr (fun n ↦ Filter.eventually_atTop.mpr ⟨n, ?_⟩)
+  refine ENat.tendsto_nhds_top_iff_natCast_lt.mpr (fun n ↦ eventually_atTop.mpr ⟨n, ?_⟩)
   intro m hm
   rw [PowerSeries.order_neg]
   refine lt_of_lt_of_le ?_ (PowerSeries.le_order_pow _ _)
@@ -222,66 +222,52 @@ theorem pentagonalLhs_γ0 [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing
   conv in fun n ↦ _ =>
     ext n
     rw [Finset.prod_one_sub_ordered]
-  apply Filter.Tendsto.const_sub
-  rw [(Filter.map_add_atTop_eq_nat 1).symm]
-  apply Filter.tendsto_map'
-  change Filter.Tendsto ((fun k ↦ ∑ i ∈ Finset.range (k + 1), X ^ (i + 1) *
-      ∏ j ∈ Finset.range (k + 1) with j < i, (1 - X ^ (j + 1))))
-      Filter.atTop (nhds (X ^ 2 * ∑' (n : ℕ), γ R 0 n + X))
+  apply Tendsto.const_sub
+  rw [(map_add_atTop_eq_nat 1).symm]
+  apply tendsto_map'
+  change Tendsto (fun k ↦ ∑ i ∈ Finset.range (k + 1), X ^ (i + 1) *
+      ∏ j ∈ Finset.range (k + 1) with j < i, (1 - X ^ (j + 1)))
+      atTop (nhds (X ^ 2 * ∑' (n : ℕ), γ R 0 n + X))
   simp_rw [Finset.sum_range_succ']
-  refine Filter.Tendsto.add ?_ (by simp)
+  refine Tendsto.add ?_ (by simp)
   have (k : ℕ) : (X ^ (k + 1 + 1) : R⟦X⟧) = X ^ 2 * X ^ k := by ring
   conv in fun k ↦ X ^ (k + 1 + 1) * _ =>
     ext k
     rw [this k]
   simp_rw [mul_assoc, ← Finset.mul_sum]
-  apply Filter.Tendsto.const_mul
+  apply Tendsto.const_mul
 
-  suffices Filter.Tendsto (fun k ↦ ∑ i ∈ Finset.range k,
+  suffices Tendsto (fun k ↦ ∑ i ∈ Finset.range k,
       (X ^ i * ∏ j ∈ Finset.range (k + 1) with j < i + 1,
-      (1 - X ^ (j + 1)) - (γ R 0 i))) Filter.atTop (nhds 0) by
+      (1 - X ^ (j + 1)) - (γ R 0 i))) atTop (nhds 0) by
     simpa using this.add (summable_γ R 0).tendsto_sum_tsum_nat
-  unfold γ
-  simp_rw [zero_add, one_mul, ← mul_sub]
+  simp_rw [γ, zero_add, one_mul, ← mul_sub]
 
   have hfilterswap (j k : ℕ) : (Finset.range (j + 1)).filter (· < k + 1) =
       (Finset.range (k + 1)).filter (· < j + 1) := by
-    ext x
     grind
   have (j k : ℕ) : ∏ n ∈ Finset.range (k + 1), ((1 : R⟦X⟧) - X ^ (n + 1)) =
       (∏ n ∈ Finset.range (k + 1) with ¬ n < j + 1, ((1 : R⟦X⟧) - X ^ (n + 1))) *
       (∏ n ∈ Finset.range (j + 1) with n < k + 1, ((1 : R⟦X⟧) - X ^ (n + 1))) := by
-    rw [hfilterswap]
-    rw [Finset.prod_filter_not_mul_prod_filter]
+    rw [hfilterswap, Finset.prod_filter_not_mul_prod_filter]
 
   conv in fun j ↦ _ =>
     ext j
     right
     conv in fun k ↦ _ =>
       ext k
-      rw [this j k]
-      rw [← one_sub_mul]
+      rw [this j k, ← one_sub_mul]
   rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-  intro d
-  apply tendsto_atTop_of_eventually_const (i₀ := d)
-  intro i hi
+  refine fun d ↦ tendsto_atTop_of_eventually_const (i₀ := d) fun i hi ↦ ?_
   rw [map_zero, map_sum]
-  apply Finset.sum_eq_zero
-  intro j hj
-  apply PowerSeries.coeff_of_lt_order
-  refine lt_of_lt_of_le ?_ (PowerSeries.le_order_mul _ _)
-  apply lt_add_of_nonneg_of_lt (by simp)
-  refine lt_of_lt_of_le ?_ (PowerSeries.le_order_mul _ _)
-  refine lt_add_of_lt_of_nonneg ?_ (by simp)
+  refine Finset.sum_eq_zero (fun j hj ↦ PowerSeries.coeff_of_lt_order _ ?_)
+  refine lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
+  refine lt_of_lt_of_le (lt_add_of_lt_of_nonneg ?_ (by simp)) (PowerSeries.le_order_mul _ _)
   apply lt_of_le_of_lt (Nat.cast_le.mpr hi.le)
   rw [← ENat.add_one_le_iff (by simp)]
   norm_cast
   simp_rw [sub_eq_add_neg _ (X ^ _)]
-  refine le_trans ?_ (le_order_one_sub_prod_one_add _ _)
-  apply le_iInf
-  intro k
-  apply le_iInf
-  intro hk
+  refine le_trans (le_iInf (fun k ↦ le_iInf fun hk ↦ ?_)) (le_order_one_sub_prod_one_add _ _)
   simp_rw [Finset.mem_filter, Finset.mem_range, not_lt] at hk
   suffices (i + 1 : ℕ∞) ≤ k + 1 by simpa
   norm_cast
@@ -291,7 +277,7 @@ theorem pentagonalLhs_γ0 [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing
 /-- Applying the recurrence formula repeatedly, we get
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
-\left(\sum_{k=0}^{N} (-1)^k (x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}) \right) +
+\left(\sum_{k=0}^{N} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) \right) +
 (-1)^{N+1}x^{(N+1)(3N + 4)/2}Γ_N $$ -/
 theorem pentagonalLhs_γ [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
     (N : ℕ) : ∏' n, (1 - X ^ (n + 1)) =
@@ -323,45 +309,39 @@ theorem summable_pentagonalRhs
   apply PowerSeries.WithPiTopology.summable_of_tendsto_order_atTop_nhds_top
   rw [ENat.tendsto_nhds_top_iff_natCast_lt]
   intro n
-  rw [Filter.eventually_atTop]
-  use n + 1
-  intro k hk
+  rw [eventually_atTop]
+  refine ⟨n + 1, fun k hk ↦ ?_⟩
   rw [sub_eq_add_neg]
   apply lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
   apply lt_of_lt_of_le ?_ (PowerSeries.min_order_le_order_add _ _)
   simp_rw [order_neg, order_X_pow]
   rw [min_eq_left (by gcongr <;> simp)]
   rw [Nat.cast_lt, ← Nat.add_one_le_iff, Nat.le_div_iff_mul_le (by simp)]
-  apply Nat.mul_le_mul hk
-  linarith
+  exact Nat.mul_le_mul hk (by linarith)
 
 /-- Taking $N \to \infty$, we get the pentagonal number theorem in the natural number form
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
-\sum_{k=0}^{\infty} (-1)^k (x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}) $$ -/
+\sum_{k=0}^{\infty} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) $$ -/
 
 theorem pentagonalNumberTheorem'
     [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
     ∏' n, (1 - X ^ (n + 1) : R⟦X⟧) =
     ∑' k, (-1) ^ k * (X ^ (k * (3 * k + 1) / 2) - X ^ ((k + 1) * (3 * k + 2) / 2)) := by
-  symm
-  apply HasSum.tsum_eq
-  rw [(summable_pentagonalRhs R).hasSum_iff_tendsto_nat]
-  rw [(Filter.map_add_atTop_eq_nat 1).symm]
-  apply Filter.tendsto_map'
-  change Filter.Tendsto
+  refine (HasSum.tsum_eq ?_).symm
+  rw [(summable_pentagonalRhs R).hasSum_iff_tendsto_nat, (map_add_atTop_eq_nat 1).symm]
+  apply tendsto_map'
+  change Tendsto
     (fun n ↦ ∑ i ∈ Finset.range (n + 1), (-1) ^ i *
-        (X ^ (i * (3 * i + 1) / 2) - X ^ ((i + 1) * (3 * i + 2) / 2)))
-    Filter.atTop (nhds (∏' (n : ℕ), (1 - X ^ (n + 1))))
+      (X ^ (i * (3 * i + 1) / 2) - X ^ ((i + 1) * (3 * i + 2) / 2)))
+    atTop (nhds (∏' (n : ℕ), (1 - X ^ (n + 1))))
   obtain h := pentagonalLhs_γ R
   simp_rw [← sub_eq_iff_eq_add] at h
   simp_rw [← h]
   rw [← tendsto_sub_nhds_zero_iff]
   simp_rw [sub_sub_cancel_left]
   rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-  intro n
-  apply tendsto_atTop_of_eventually_const (i₀ := n)
-  intro k hk
+  refine fun n ↦ tendsto_atTop_of_eventually_const (i₀ := n) fun k hk ↦ ?_
   rw [map_zero]
   apply PowerSeries.coeff_of_lt_order
   rw [PowerSeries.order_neg]
@@ -377,7 +357,7 @@ theorem summable_pentagonalRhs_intNeg
   <;> apply PowerSeries.WithPiTopology.summable_of_tendsto_order_atTop_nhds_top
   <;> rw [ENat.tendsto_nhds_top_iff_natCast_lt]
   <;> intro n
-  <;> rw [Filter.eventually_atTop]
+  <;> rw [eventually_atTop]
   <;> use n
   <;> intro k hk
   <;> refine lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
@@ -395,10 +375,9 @@ summing direction is the opposite to the classic formula
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k + 1)/2} $$ -/
 theorem pentagonalNumberTheorem_intNeg
     [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
-    ∏' n, (1 - X ^ (n + 1) : R⟦X⟧) =
+    ∏' n, (1 - X ^ (n + 1)) =
     ∑' (k : ℤ), (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k + 1) / 2).toNat := by
-  rw [← tsum_nat_add_neg_add_one (summable_pentagonalRhs_intNeg R)]
-  rw [pentagonalNumberTheorem']
+  rw [← tsum_nat_add_neg_add_one (summable_pentagonalRhs_intNeg R), pentagonalNumberTheorem']
   apply tsum_congr
   intro k
   rw [sub_eq_add_neg _ (X ^ _), mul_add, ← neg_mul_comm]
@@ -425,10 +404,9 @@ theorem summable_pentagonalRhs_intPos
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k - 1)/2} $$ -/
 theorem pentagonalNumberTheorem_intPos
     [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
-    ∏' n, (1 - X ^ (n + 1) : R⟦X⟧) =
+    ∏' n, (1 - X ^ (n + 1)) =
     ∑' (k : ℤ), (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k - 1) / 2).toNat := by
-  rw [pentagonalNumberTheorem_intNeg]
-  rw [← neg_injective.tsum_eq (by simp)]
+  rw [pentagonalNumberTheorem_intNeg, ← neg_injective.tsum_eq (by simp)]
   apply tsum_congr
   intro k
   apply congr($_ * X ^ (Int.toNat ($_ / 2)))
