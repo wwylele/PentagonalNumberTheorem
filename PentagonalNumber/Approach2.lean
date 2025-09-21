@@ -43,6 +43,56 @@ theorem multipliable_one_add_of_summable_prod {f : ι → α} (h : Summable (∏
   obtain ⟨a, ha⟩ := h
   exact ⟨a, hasProd_one_add_of_hasSum_prod ha⟩
 
+noncomputable
+def LocallyFiniteOrderBot.toOrderBot (α : Type*)
+    [SemilatticeInf α] [LocallyFiniteOrderBot α] [h : Nonempty α] :
+    OrderBot α where
+  bot := (Finset.Iic h.some).inf' Finset.nonempty_Iic id
+  bot_le a := by
+    trans h.some ⊓ a
+    · exact Finset.inf'_le _ (by simp)
+    · exact inf_le_right
+
+theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace α] [T2Space α]
+    [LinearOrder ι] [LocallyFiniteOrderBot ι] [ContinuousSub α] [T2Space α]
+    {f : ι → α} (hsum : Summable (fun i ↦ f i * ∏ j ∈ Finset.Iio i, (1 - f j)))
+    (hmul : Multipliable (1 - f ·)) :
+    ∏' i, (1 - f i) = 1 - ∑' i, f i * ∏ j ∈ Finset.Iio i, (1 - f j) := by
+  obtain hempty | hempty := isEmpty_or_nonempty ι
+  · simp
+  obtain ⟨x, hx⟩ := hmul
+  convert hx.tprod_eq
+  unfold HasProd at hx
+  obtain hx := hx.const_sub 1
+  conv at hx in fun s ↦ _ =>
+    ext s
+    rw [Finset.prod_one_sub_ordered]
+    rw [sub_sub_cancel]
+
+  obtain ⟨a, ha⟩ := hsum
+  have : Tendsto (fun i : ι ↦ Finset.Iic i) atTop atTop := by
+    let : OrderBot ι := LocallyFiniteOrderBot.toOrderBot ι
+    rw [Filter.tendsto_atTop_atTop]
+    intro s
+    use s.sup id
+    intro i h
+    intro b hb
+    rw [Finset.sup_le_iff] at h
+    simpa using h b hb
+  obtain h' := ha.comp this
+  obtain hx' := hx.comp this
+  rw [ha.tsum_eq, sub_eq_iff_eq_add, ← sub_eq_iff_eq_add']
+  apply tendsto_nhds_unique hx'
+  convert h' using 1
+  ext s
+  apply Finset.sum_congr rfl
+  intro i hi
+  apply congr(_ * ∏ _ ∈ $_, _)
+  ext j
+  suffices j < i → j ≤ s by simpa
+  intro hj
+  exact (hj.trans_le (by simpa using hi)).le
+
 end HasProd
 
 namespace PowerSeries
@@ -211,68 +261,31 @@ theorem multipliable_pentagonalLhs [Nontrivial R] [TopologicalSpace R] :
   norm_cast
   exact lt_of_le_of_lt hm (by simp)
 
+
 /-- The Euler function is related to $Γ$ by
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = 1 - x - x^2 Γ_0 $$ -/
 theorem pentagonalLhs_γ0 [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
     ∏' n, (1 - X ^ (n + 1)) = 1 - X - X ^ 2 * ∑' n, γ R 0 n := by
-  rw [sub_sub, add_comm]
-  apply HasProd.tprod_eq
-  rw [(multipliable_pentagonalLhs R).hasProd_iff_tendsto_nat]
-  conv in fun n ↦ _ =>
-    ext n
-    rw [Finset.prod_one_sub_ordered]
-  apply Tendsto.const_sub
-  rw [(map_add_atTop_eq_nat 1).symm]
-  apply tendsto_map'
-  change Tendsto (fun k ↦ ∑ i ∈ Finset.range (k + 1), X ^ (i + 1) *
-      ∏ j ∈ Finset.range (k + 1) with j < i, (1 - X ^ (j + 1)))
-      atTop (nhds (X ^ 2 * ∑' (n : ℕ), γ R 0 n + X))
-  simp_rw [Finset.sum_range_succ']
-  refine Tendsto.add ?_ (by simp)
-  have (k : ℕ) : (X ^ (k + 1 + 1) : R⟦X⟧) = X ^ 2 * X ^ k := by ring
-  conv in fun k ↦ X ^ (k + 1 + 1) * _ =>
-    ext k
-    rw [this k]
-  simp_rw [mul_assoc, ← Finset.mul_sum]
-  apply Tendsto.const_mul
-
-  suffices Tendsto (fun k ↦ ∑ i ∈ Finset.range k,
-      (X ^ i * ∏ j ∈ Finset.range (k + 1) with j < i + 1,
-      (1 - X ^ (j + 1)) - (γ R 0 i))) atTop (nhds 0) by
-    simpa using this.add (summable_γ R 0).tendsto_sum_tsum_nat
-  simp_rw [γ, zero_add, one_mul, ← mul_sub]
-
-  have hfilterswap (j k : ℕ) : (Finset.range (j + 1)).filter (· < k + 1) =
-      (Finset.range (k + 1)).filter (· < j + 1) := by
-    grind
-  have (j k : ℕ) : ∏ n ∈ Finset.range (k + 1), ((1 : R⟦X⟧) - X ^ (n + 1)) =
-      (∏ n ∈ Finset.range (k + 1) with ¬ n < j + 1, ((1 : R⟦X⟧) - X ^ (n + 1))) *
-      (∏ n ∈ Finset.range (j + 1) with n < k + 1, ((1 : R⟦X⟧) - X ^ (n + 1))) := by
-    rw [hfilterswap, Finset.prod_filter_not_mul_prod_filter]
-
-  conv in fun j ↦ _ =>
-    ext j
-    right
+  obtain hsum := summable_γ R 0
+  unfold γ at hsum
+  simp_rw [zero_add, one_mul] at hsum
+  have hsum' : Summable fun i ↦ X ^ (i + 1) * ∏ x ∈ Finset.range i, (1 - X ^ (x + 1) : R⟦X⟧) := by
+    apply Summable.comp_nat_add (k := 1)
     conv in fun k ↦ _ =>
       ext k
-      rw [this j k, ← one_sub_mul]
-  rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-  refine fun d ↦ tendsto_atTop_of_eventually_const (i₀ := d) fun i hi ↦ ?_
-  rw [map_zero, map_sum]
-  refine Finset.sum_eq_zero (fun j hj ↦ PowerSeries.coeff_of_lt_order _ ?_)
-  refine lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
-  refine lt_of_lt_of_le (lt_add_of_lt_of_nonneg ?_ (by simp)) (PowerSeries.le_order_mul _ _)
-  apply lt_of_le_of_lt (Nat.cast_le.mpr hi.le)
-  rw [← ENat.add_one_le_iff (by simp)]
-  norm_cast
-  simp_rw [sub_eq_add_neg _ (X ^ _)]
-  refine le_trans (le_iInf (fun k ↦ le_iInf fun hk ↦ ?_)) (le_order_one_sub_prod_one_add _ _)
-  simp_rw [Finset.mem_filter, Finset.mem_range, not_lt] at hk
-  suffices (i + 1 : ℕ∞) ≤ k + 1 by simpa
-  norm_cast
-  rw [add_le_add_iff_right]
-  apply le_trans (by simp) hk.2
+      rw [pow_add, pow_add, mul_assoc (X ^ k), mul_comm (X ^ k), mul_assoc (X ^1 * X ^ 1)]
+    apply Summable.mul_left _ hsum
+
+  rw [tprod_one_sub_ordererd (by simpa [Nat.Iio_eq_range] using hsum')
+    (multipliable_pentagonalLhs R)]
+  simp_rw [Nat.Iio_eq_range, sub_sub, sub_right_inj, Summable.tsum_eq_zero_add hsum']
+  conv in fun k ↦ X ^ (k + 1 + 1) * _ =>
+    ext k
+    rw [pow_add, pow_add, mul_assoc (X ^ k), mul_comm (X ^ k),
+      ← pow_add X 1 1, one_add_one_eq_two, mul_assoc (X ^ 2)]
+  rw [Summable.tsum_mul_left _ hsum]
+  simp [γ]
 
 /-- Applying the recurrence formula repeatedly, we get
 
