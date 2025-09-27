@@ -165,7 +165,7 @@ theorem summable_pentagonalRhs_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
 
 /-- **Pentagonal number theorem** for complex numbers, summation over integers, classic order.
 
-$$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k + 1)/2} $$ -/
+$$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k - 1)/2} $$ -/
 theorem pentagonalNumberTheorem_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
     ∏' n, (1 - x ^ (n + 1)) =
     ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k - 1) / 2) := by
