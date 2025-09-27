@@ -2,7 +2,7 @@ import Mathlib
 
 /-!
 
-# Pentagonal number theorem
+# Pentagonal number theorem with Franklin's bijective proof
 
 This file proves the
 [pentagonal number theorem](https://en.wikipedia.org/wiki/Pentagonal_number_theorem)
@@ -10,14 +10,16 @@ at `pentagonalNumberTheorem` in terms of formal power series:
 
 $$\prod_{n=1}^{\infty} (1 - x^n) = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k-1)/2}$$
 
-following Franklin's bijective proof presented on the wikipedia page. This polynomial,
-regarded as a complex-valued function, is also known as the Euler function $\phi(x)$.
+following Franklin's bijective proof presented on the wikipedia page. This long proof
+is obsolete by the shorter ones in `PowerSeries.lean` and `Complex.lean`, but I keep
+it here to show case how a combinatorial proof can be done.
 
 This file also proves the recurrence relation of the partition function as a corollary
 at `partitionFunctionSum`:
 
 $$\sum_{k \in \mathbb{Z}} (-1)^k p(n - k(3k-1)/2) = 0 \quad (n > 0)$$
 
+(TODO: move this)
 
 -/
 

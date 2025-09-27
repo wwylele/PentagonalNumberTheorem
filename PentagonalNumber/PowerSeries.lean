@@ -94,8 +94,6 @@ theorem le_order_one_sub_prod_one_add [CommRing R] {ι : Type*} [DecidableEq ι]
     rw [iInf_pos ha]
     apply Finset.single_le_sum (by simp) ha
 
-variable [TopologicalSpace R] [Semiring R]
-
 variable {R : Type*}
 variable [TopologicalSpace R] [CommSemiring R]
 
@@ -124,16 +122,17 @@ end PowerSeries
 
 variable (R : Type*) [CommRing R]
 
+
+namespace Pentagonal
+
 theorem summable_γ_powerSeries [TopologicalSpace R] (N : ℕ) :
-    Summable (Pentagonal.γ N · (X : R⟦X⟧)) := by
+    Summable (γ N · (X : R⟦X⟧)) := by
   rw [PowerSeries.WithPiTopology.summable_iff_summable_coeff]
-  intro n
-  apply summable_of_finite_support
-  apply Set.Finite.subset (Set.finite_Iic n)
+  refine fun n ↦ summable_of_finite_support <| Set.Finite.subset (Set.finite_Iic n) ?_
   simp_rw [Function.support_subset_iff, Set.mem_Iic]
   intro k h
   contrapose! h
-  unfold Pentagonal.γ
+  unfold γ
   have : ¬ (N + 1) * k ≤ n := by
     rw [not_le]
     exact h.trans_le <| Nat.le_mul_of_pos_left k (by simp)
@@ -151,6 +150,10 @@ theorem multipliable_pentagonalLhs_powerSeries' [Nontrivial R] [TopologicalSpace
   norm_cast
   exact lt_of_le_of_lt hm (by rw[add_assoc]; simp)
 
+end Pentagonal
+
+open Pentagonal
+
 theorem multipliable_pentagonalLhs_powerSeries [Nontrivial R] [TopologicalSpace R] :
     Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + 1)) := by
   simpa using multipliable_pentagonalLhs_powerSeries' R 0
@@ -161,9 +164,7 @@ theorem summable_pentagonalRhs_powerSeries
     ((-1) ^ k * (X ^ (k * (3 * k + 1) / 2) - X ^ ((k + 1) * (3 * k + 2) / 2)) : R⟦X⟧)) := by
   apply PowerSeries.WithPiTopology.summable_of_tendsto_order_atTop_nhds_top
   rw [ENat.tendsto_nhds_top_iff_natCast_lt]
-  intro n
-  rw [eventually_atTop]
-  refine ⟨n + 1, fun k hk ↦ ?_⟩
+  refine fun n ↦ eventually_atTop.mpr ⟨n + 1, fun k hk ↦ ?_⟩
   rw [sub_eq_add_neg]
   apply lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
   apply lt_of_lt_of_le ?_ (PowerSeries.min_order_le_order_add _ _)
@@ -203,20 +204,14 @@ theorem summable_pentagonalRhs_intNeg_powerSeries
     [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
     Summable (fun (k : ℤ) ↦ (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k + 1) / 2).toNat) := by
   apply Summable.of_add_one_of_neg_add_one
-  <;> apply PowerSeries.WithPiTopology.summable_of_tendsto_order_atTop_nhds_top
-  <;> rw [ENat.tendsto_nhds_top_iff_natCast_lt]
-  <;> intro n
-  <;> rw [eventually_atTop]
-  <;> use n
-  <;> intro k hk
-  <;> refine lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
-  <;> rw [order_X_pow, Nat.cast_lt, Int.lt_toNat, ← Int.add_one_le_iff]
-  <;> rw [Int.le_ediv_iff_mul_le (by simp)]
-  · gcongr
-    linarith
-  · rw [neg_mul_comm]
-    gcongr
-    linarith
+  all_goals
+  apply PowerSeries.WithPiTopology.summable_of_tendsto_order_atTop_nhds_top
+  rw [ENat.tendsto_nhds_top_iff_natCast_lt]
+  refine fun n ↦ eventually_atTop.mpr ⟨n, fun k hk ↦ ?_⟩
+  refine lt_of_lt_of_le (lt_add_of_nonneg_of_lt (by simp) ?_) (PowerSeries.le_order_mul _ _)
+  rw [order_X_pow, Nat.cast_lt, Int.lt_toNat, ← Int.add_one_le_iff]
+  rw [Int.le_ediv_iff_mul_le (by simp)]
+  nlinarith
 
 /-- **Pentagonal number theorem** for formal power series, summation over integers, opposite order.
 
@@ -251,9 +246,7 @@ theorem pentagonalNumberTheorem_intPos_powerSeries
     ∏' n, (1 - X ^ (n + 1)) =
     ∑' (k : ℤ), (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k - 1) / 2).toNat := by
   rw [pentagonalNumberTheorem_intNeg_powerSeries, ← neg_injective.tsum_eq (by simp)]
-  apply tsum_congr
-  intro k
-  apply congr($(by simp) * X ^ (Int.toNat ($(by ring_nf) / 2)))
+  exact tsum_congr fun k ↦ congr($(by simp) * X ^ (Int.toNat ($(by ring_nf) / 2)))
 
 /-
 namespace Nat.Partition
