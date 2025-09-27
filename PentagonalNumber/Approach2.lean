@@ -43,18 +43,17 @@ theorem multipliable_one_add_of_summable_prod {f : ι → α} (h : Summable (∏
   obtain ⟨a, ha⟩ := h
   exact ⟨a, hasProd_one_add_of_hasSum_prod ha⟩
 
-noncomputable
-def LocallyFiniteOrderBot.toOrderBot (α : Type*)
-    [SemilatticeInf α] [LocallyFiniteOrderBot α] [h : Nonempty α] :
-    OrderBot α where
-  bot := (Finset.Iic h.some).inf' Finset.nonempty_Iic id
-  bot_le a := by
-    trans h.some ⊓ a
-    · exact Finset.inf'_le _ (by simp)
-    · exact inf_le_right
+theorem Filter.tendsto_finset_Iic_atTop_atTop {α : Type*} [Lattice α] [LocallyFiniteOrderBot α] :
+    Filter.Tendsto (Finset.Iic (α := α)) atTop atTop := by
+  rcases isEmpty_or_nonempty α with _ | _
+  · apply Filter.tendsto_of_isEmpty
+  refine Filter.tendsto_atTop_atTop.mpr fun s ↦ ?_
+  rcases Finset.eq_empty_or_nonempty s with rfl | hnonempty
+  · simp
+  exact ⟨s.sup' hnonempty id, fun _ h b hb ↦ by simpa using (Finset.sup'_le_iff _ _).mp h b hb⟩
 
 theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace α] [T2Space α]
-    [LinearOrder ι] [LocallyFiniteOrderBot ι] [ContinuousSub α] [T2Space α]
+    [LinearOrder ι] [LocallyFiniteOrderBot ι] [IsTopologicalAddGroup α]
     {f : ι → α} (hsum : Summable (fun i ↦ f i * ∏ j ∈ Finset.Iio i, (1 - f j)))
     (hmul : Multipliable (1 - f ·)) :
     ∏' i, (1 - f i) = 1 - ∑' i, f i * ∏ j ∈ Finset.Iio i, (1 - f j) := by
@@ -70,17 +69,8 @@ theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace �
     rw [sub_sub_cancel]
 
   obtain ⟨a, ha⟩ := hsum
-  have : Tendsto (fun i : ι ↦ Finset.Iic i) atTop atTop := by
-    let : OrderBot ι := LocallyFiniteOrderBot.toOrderBot ι
-    rw [Filter.tendsto_atTop_atTop]
-    intro s
-    use s.sup id
-    intro i h
-    intro b hb
-    rw [Finset.sup_le_iff] at h
-    simpa using h b hb
-  obtain h' := ha.comp this
-  obtain hx' := hx.comp this
+  obtain h' := ha.comp Filter.tendsto_finset_Iic_atTop_atTop
+  obtain hx' := hx.comp Filter.tendsto_finset_Iic_atTop_atTop
   rw [ha.tsum_eq, sub_eq_iff_eq_add, ← sub_eq_iff_eq_add']
   apply tendsto_nhds_unique hx'
   convert h' using 1
@@ -270,7 +260,7 @@ theorem pentagonalLhs_γ0 [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing
   obtain hsum := summable_γ R 0
   unfold γ at hsum
   simp_rw [zero_add, one_mul] at hsum
-  have hsum' : Summable fun i ↦ X ^ (i + 1) * ∏ x ∈ Finset.range i, (1 - X ^ (x + 1) : R⟦X⟧) := by
+  have hsum' : Summable fun i ↦ X ^ (i + 1) * ∏ n ∈ Finset.range i, (1 - X ^ (n + 1) : R⟦X⟧) := by
     apply Summable.comp_nat_add (k := 1)
     conv in fun k ↦ _ =>
       ext k
@@ -394,12 +384,9 @@ theorem pentagonalNumberTheorem_intNeg
   apply tsum_congr
   intro k
   rw [sub_eq_add_neg _ (X ^ _), mul_add, ← neg_mul_comm]
-  apply congr($_ * X ^ $_ + $_ * X ^ $_)
-  · norm_cast
-  · norm_cast
-  · trans (-1) ^ (k + 1)
-    · ring
-    · norm_cast
+  apply congr($(by norm_cast) * X ^ $(by norm_cast) + $_ * X ^ $(by norm_cast))
+  trans (-1) ^ (k + 1)
+  · ring
   · norm_cast
 
 theorem summable_pentagonalRhs_intPos
@@ -408,9 +395,7 @@ theorem summable_pentagonalRhs_intPos
   rw [← neg_injective.summable_iff (by intro x hx; contrapose! hx; use -x; simp)]
   convert summable_pentagonalRhs_intNeg R
   rw [Function.comp_apply]
-  apply congr($_ * X ^ (Int.toNat ($_ / 2)))
-  · simp
-  · ring_nf
+  exact congr($(by simp) * X ^ (Int.toNat ($(by ring_nf) / 2)))
 
 /-- Taking the opposite direction, we get the classic formula
 
@@ -422,6 +407,75 @@ theorem pentagonalNumberTheorem_intPos
   rw [pentagonalNumberTheorem_intNeg, ← neg_injective.tsum_eq (by simp)]
   apply tsum_congr
   intro k
-  apply congr($_ * X ^ (Int.toNat ($_ / 2)))
-  · simp
-  · ring_nf
+  apply congr($(by simp) * X ^ (Int.toNat ($(by ring_nf) / 2)))
+
+/-
+namespace Nat.Partition
+
+theorem le_of_mem_parts {n : ℕ} {p : Partition n} {m : ℕ} (h : m ∈ p.parts) :
+    m ≤ n := by
+  rw [← p.parts_sum]
+  exact Multiset.le_sum_of_mem h
+
+variable {R : Type*}
+
+theorem multipliable_genFun [CommSemiring R] [TopologicalSpace R] (f : ℕ → ℕ → R) :
+    Multipliable fun m ↦ (1 + ∑' n, f (m + 1) (n + 1) • X ^ ((m + 1) * (n + 1)) : R⟦X⟧) := by sorry
+
+noncomputable
+def genFun [CommSemiring R] (f : ℕ → ℕ → R) :=
+  PowerSeries.mk fun d ↦ ∑ p : d.Partition, ∏ m ∈ p.parts.toFinset, f m (p.parts.count m)
+
+
+theorem coeff_genFun [CommSemiring R] [TopologicalSpace R] [T2Space R] (f : ℕ → ℕ → R) :
+    genFun f =
+    ∏' m, (1 + ∑' n, f (m + 1) (n + 1) • X ^ ((m + 1) * (n + 1)) : R⟦X⟧) := by
+  apply (HasProd.tprod_eq ?_).symm
+  rw [HasProd, PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
+  intro d
+  apply tendsto_atTop_of_eventually_const
+  show ∀ s ≥ Finset.range (d + 1), _
+  intro s hs
+  rw [PowerSeries.coeff_prod]
+  rw [genFun, PowerSeries.coeff_mk]
+  symm
+  refine Finset.sum_of_injOn (fun p ↦ Finsupp.mk p.parts.toFinset
+    (fun m ↦ p.parts.count m * m) (fun m ↦ ?_)) ?_ ?_ ?_ ?_
+  · simpa using fun hm ↦ Nat.ne_zero_of_lt <| p.parts_pos hm
+  · apply Function.Injective.injOn
+    intro p q h
+    rw [Finsupp.mk.injEq] at h
+    obtain ⟨hfinset, hcount⟩ := h
+    rw [Nat.Partition.ext_iff, Multiset.ext]
+    intro m
+    obtain rfl | h0 := Nat.eq_zero_or_pos m
+    · trans 0
+      · rw [Multiset.count_eq_zero]
+        exact fun h ↦ (lt_self_iff_false _).mp <| p.parts_pos h
+      · symm
+        rw [Multiset.count_eq_zero]
+        exact fun h ↦ (lt_self_iff_false _).mp <| q.parts_pos h
+    · exact Nat.eq_of_mul_eq_mul_right h0 <| funext_iff.mp hcount m
+  · suffices ∀ (p : d.Partition), ∑ m ∈ s, Multiset.count m p.parts * m = d ∧
+        p.parts.toFinset ⊆ s by simpa
+    intro p
+    have hp : p.parts.toFinset ⊆ s := by
+      refine le_trans ?_ hs
+      intro m
+      rw [Multiset.mem_toFinset, Finset.mem_range]
+      exact fun h ↦ Nat.lt_add_one_of_le (le_of_mem_parts h)
+    constructor
+    · simp_rw [← p.parts_sum, Finset.sum_multiset_count, smul_eq_mul]
+      symm
+      apply Finset.sum_subset hp (by aesop)
+    · exact hp
+  · intro f hf hf'
+    simp at hf'
+    sorry
+  · intro p
+
+    sorry
+
+
+end Nat.Partition
+-/
