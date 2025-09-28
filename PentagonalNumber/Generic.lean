@@ -5,29 +5,20 @@ import Mathlib
 
 # Generic framework for Pentagonal number theorem
 
-This file proves the Pentagonal number theorem partially for arbitrary topological ring,
+This file partially proves the Pentagonal number theorem for arbitrary topological ring,
 without concerning about summability, multipliability, or the existence of certain limits.
 
 Complete proof is delegated to Complex.lean and PowerSeries.lean.
 
-using approach described in
+Reference:
 https://math.stackexchange.com/questions/55738/how-to-prove-eulers-pentagonal-theorem-some-hints-will-help
 -/
 
 open Filter
 
-theorem Filter.tendsto_finset_Iic_atTop_atTop {α : Type*} [Lattice α] [LocallyFiniteOrderBot α] :
-    Filter.Tendsto (Finset.Iic (α := α)) atTop atTop := by
-  rcases isEmpty_or_nonempty α with _ | _
-  · apply Filter.tendsto_of_isEmpty
-  refine Filter.tendsto_atTop_atTop.mpr fun s ↦ ?_
-  rcases Finset.eq_empty_or_nonempty s with rfl | hnonempty
-  · simp
-  exact ⟨s.sup' hnonempty id, fun _ h b hb ↦ by simpa using (Finset.sup'_le_iff _ _).mp h b hb⟩
-
 theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace α] [T2Space α]
     [LinearOrder ι] [LocallyFiniteOrderBot ι] [IsTopologicalAddGroup α]
-    {f : ι → α} (hsum : Summable (fun i ↦ f i * ∏ j ∈ Finset.Iio i, (1 - f j)))
+    {f : ι → α} (hsum : Summable fun i ↦ f i * ∏ j ∈ Finset.Iio i, (1 - f j))
     (hmul : Multipliable (1 - f ·)) :
     ∏' i, (1 - f i) = 1 - ∑' i, f i * ∏ j ∈ Finset.Iio i, (1 - f j) := by
   obtain hempty | hempty := isEmpty_or_nonempty ι
@@ -38,9 +29,7 @@ theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace �
   obtain hx := hx.const_sub 1
   conv at hx in fun s ↦ _ =>
     ext s
-    rw [Finset.prod_one_sub_ordered]
-    rw [sub_sub_cancel]
-
+    rw [Finset.prod_one_sub_ordered, sub_sub_cancel]
   obtain ⟨a, ha⟩ := hsum
   obtain h' := ha.comp Filter.tendsto_finset_Iic_atTop_atTop
   obtain hx' := hx.comp Filter.tendsto_finset_Iic_atTop_atTop
@@ -106,28 +95,19 @@ theorem γ_rec [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
   apply Tendsto.sub_const
   unfold ψ
   rw [show nhds 0 = nhds (0 * (0 - 1) * ∏' i, (1 - x ^ (N + i + 2))) by simp]
-  refine Filter.Tendsto.mul ?_ ?_
-  · apply Tendsto.mul
-    · apply hx.comp
-      refine StrictMono.tendsto_atTop ?_
-      refine strictMono_mul_left_of_pos ?_
-      simp
-    · apply Tendsto.sub_const
-      apply hx.comp
-      refine StrictMono.tendsto_atTop ?_
-      refine StrictMono.add_monotone ?_ monotone_const
-      exact add_right_strictMono
+  refine (Tendsto.mul ?_ ?_).mul ?_
+  · exact hx.comp (strictMono_mul_left_of_pos (by simp)).tendsto_atTop
+  · refine Tendsto.sub_const (hx.comp (StrictMono.tendsto_atTop ?_)) _
+    exact add_right_strictMono.add_monotone monotone_const
   · apply Multipliable.tendsto_prod_tprod_nat
-    suffices Multipliable fun i ↦ 1 - x ^ (i + (N + 1) + 1) by
-      convert this using 4
-      ring
-    apply h
+    convert h (N + 1) using 4
+    ring
 
 /-- The Euler function is related to $Γ$ by
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = 1 - x - x^2 Γ_0 $$ -/
 theorem pentagonalLhs_γ0 [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] {x : R}
-    (hγ : ∀ N, Summable (γ N · x)) (h : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1))) :
+    (hγ : ∀ N, Summable (γ N · x)) (h : ∀ N, Multipliable fun n ↦ 1 - x ^ (n + N + 1)) :
     ∏' n, (1 - x ^ (n + 1)) = 1 - x - x ^ 2 * ∑' n, γ 0 n x := by
   obtain hsum := hγ 0
   unfold γ at hsum
@@ -161,9 +141,7 @@ theorem pentagonalLhs_γ [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] 
       (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2))
       + (-1) ^ (N + 1) * x ^ ((N + 1) * (3 * N + 4) / 2) * ∑' n, γ N n x := by
   induction N with
-  | zero =>
-    simp [pentagonalLhs_γ0 hγ h, γ]
-    ring_nf
+  | zero => simp [pentagonalLhs_γ0 hγ h, γ, ← sub_eq_add_neg]
   | succ n ih =>
     rw [ih, γ_rec _ hx hγ h , Finset.sum_range_succ _ (n + 1)]
     have h (n) : (n + 1 + 1) * (3 * (n + 1) + 2) / 2 =
@@ -186,25 +164,26 @@ $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
 \sum_{k=0}^{\infty} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) $$ -/
 theorem pentagonalNumberTheorem_generic [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
     {x : R} (hx : IsTopologicallyNilpotent x)
-    (hγ : ∀ N, Summable (Pentagonal.γ N · x)) (h : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1)))
-    (hright : Summable (fun (k : ℕ) ↦
-      ((-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)))))
-    (hzero : Tendsto (fun k ↦ (-1) ^ (k + 1) * x ^ ((k + 1) * (3 * k + 4) / 2) *
+    (hγ : ∀ N, Summable (Pentagonal.γ N · x))
+    (hlhs : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1)))
+    (hrhs : Summable fun (k : ℕ) ↦
+      (-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)))
+    (htail : Tendsto (fun k ↦ (-1) ^ (k + 1) * x ^ ((k + 1) * (3 * k + 4) / 2) *
       ∑' (n : ℕ), Pentagonal.γ k n x) atTop (nhds 0)) :
     ∏' n, (1 - x ^ (n + 1)) =
     ∑' k, (-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)) := by
   refine (HasSum.tsum_eq ?_).symm
-  rw [hright.hasSum_iff_tendsto_nat, (map_add_atTop_eq_nat 1).symm]
+  rw [hrhs.hasSum_iff_tendsto_nat, (map_add_atTop_eq_nat 1).symm]
   apply tendsto_map'
   change Tendsto
     (fun n ↦ ∑ i ∈ Finset.range (n + 1), (-1) ^ i *
       (x ^ (i * (3 * i + 1) / 2) - x ^ ((i + 1) * (3 * i + 2) / 2)))
     atTop (nhds (∏' (n : ℕ), (1 - x ^ (n + 1))))
-  obtain h := fun n ↦ Pentagonal.pentagonalLhs_γ n hx hγ h
+  obtain h := fun n ↦ Pentagonal.pentagonalLhs_γ n hx hγ hlhs
   simp_rw [← sub_eq_iff_eq_add] at h
   simp_rw [← h]
   rw [← tendsto_sub_nhds_zero_iff]
   simp_rw [sub_sub_cancel_left]
   rw [show (nhds (0 : R)) = (nhds (-0)) by simp]
   apply Filter.Tendsto.neg
-  apply hzero
+  apply htail
