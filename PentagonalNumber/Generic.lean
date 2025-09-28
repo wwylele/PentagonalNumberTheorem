@@ -39,7 +39,7 @@ theorem tprod_one_sub_ordererd {ι α : Type*} [CommRing α] [TopologicalSpace �
   ext s
   apply Finset.sum_congr rfl
   intro i hi
-  apply congr(_ * ∏ _ ∈ $_, _)
+  congrm _ * ∏ _ ∈ ?_, _
   ext j
   suffices j < i → j ≤ s by simpa
   intro hj

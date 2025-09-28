@@ -183,16 +183,14 @@ theorem pentagonalNumberTheorem_powerSeries
     ∑' k, (-1) ^ k * (X ^ (k * (3 * k + 1) / 2) - X ^ ((k + 1) * (3 * k + 2) / 2)) := by
   refine pentagonalNumberTheorem_generic ?_ ?_ ?_ ?_ ?_
   · rw [IsTopologicallyNilpotent, PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-    intro d
-    apply tendsto_atTop_of_eventually_const
-    show ∀ i ≥ d + 1, (coeff d) (X ^ i) = (coeff d) 0
+    refine fun d ↦ tendsto_atTop_of_eventually_const fun i (hi : i ≥ d + 1) ↦ ?_
     simp_rw [coeff_X_pow]
     aesop
   · apply summable_γ_powerSeries
   · apply multipliable_pentagonalLhs_powerSeries'
   · apply summable_pentagonalRhs_powerSeries
   · rw [PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-    refine fun n ↦ tendsto_atTop_of_eventually_const (i₀ := n) fun k hk ↦ ?_
+    refine fun n ↦ tendsto_atTop_of_eventually_const fun k (hk : k ≥ n) ↦ ?_
     rw [map_zero]
     apply PowerSeries.coeff_of_lt_order
     refine lt_of_lt_of_le (lt_add_of_lt_of_nonneg ?_ (by simp)) (PowerSeries.le_order_mul _ _)
@@ -222,10 +220,9 @@ theorem pentagonalNumberTheorem_intNeg_powerSeries
     ∑' (k : ℤ), (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k + 1) / 2).toNat := by
   rw [← tsum_nat_add_neg_add_one (summable_pentagonalRhs_intNeg_powerSeries R),
     pentagonalNumberTheorem_powerSeries]
-  apply tsum_congr
-  intro k
+  refine tsum_congr fun k ↦ ?_
   rw [sub_eq_add_neg _ (X ^ _), mul_add, ← neg_mul_comm]
-  apply congr($(by norm_cast) * X ^ $(by norm_cast) + $_ * X ^ $(by norm_cast))
+  congrm ($(by norm_cast) * X ^ $(by norm_cast) + ?_ * X ^ $(by norm_cast))
   trans (-1) ^ (k + 1)
   · ring
   · norm_cast

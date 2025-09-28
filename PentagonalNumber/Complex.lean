@@ -149,7 +149,7 @@ theorem pentagonalNumberTheorem_intNeg_complex {x : ℂ} (hx : ‖x‖ < 1) :
     pentagonalNumberTheorem_complex hx]
   refine tsum_congr fun k ↦ ?_
   rw [sub_eq_add_neg _ (x ^ _), mul_add, ← neg_mul_comm]
-  apply congr($(by norm_cast) * $(by norm_cast) + $_ * $(by norm_cast))
+  congrm $(by norm_cast) * $(by norm_cast) + ?_ * $(by norm_cast)
   trans (-1) ^ (k + 1)
   · ring
   · rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
@@ -160,7 +160,7 @@ theorem summable_pentagonalRhs_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
   rw [← neg_injective.summable_iff (by intro x hx; contrapose! hx; use -x; simp)]
   convert summable_pentagonalRhs_intNeg_complex hx
   rw [Function.comp_apply]
-  apply congr($_ * x ^ ($(by ring_nf) / 2))
+  congrm ?_ * x ^ ($(by ring_nf) / 2)
   rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
 
 /-- **Pentagonal number theorem** for complex numbers, summation over integers, classic order.
@@ -171,5 +171,5 @@ theorem pentagonalNumberTheorem_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
     ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k - 1) / 2) := by
   rw [pentagonalNumberTheorem_intNeg_complex hx, ← neg_injective.tsum_eq (by simp)]
   refine tsum_congr fun k ↦ ?_
-  apply congr($_ * x ^ ($(by ring_nf) / 2))
+  congrm ?_ * x ^ ($(by ring_nf) / 2)
   rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
