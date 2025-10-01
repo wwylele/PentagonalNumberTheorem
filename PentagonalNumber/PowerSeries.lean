@@ -14,36 +14,6 @@ for power series.
 open PowerSeries Filter
 open scoped PowerSeries.WithPiTopology
 
-section HasProd
-
-
-variable {ι α : Type*} [DecidableEq ι] [CommSemiring α] [TopologicalSpace α]
-
-theorem hasProd_one_add_of_hasSum_prod {f : ι → α} {a : α} (h : HasSum (∏ i ∈ ·, f i) a) :
-    HasProd (1 + f ·) a := by
-  unfold HasProd
-  unfold HasSum at h
-  have : (fun s ↦ ∏ i ∈ s, (fun x ↦ 1 + f x) i) =
-       (fun p ↦ ∑ s ∈ p, ∏ i ∈ s, f i ) ∘ Finset.powerset := by
-    ext s
-    exact Finset.prod_one_add s
-  rw [this]
-  apply h.comp
-  rw [tendsto_atTop_atTop]
-  intro t
-  use t.sup id
-  intro u hu v hv
-  simp only [Finset.mem_powerset]
-  refine le_trans ?_ hu
-  exact Finset.le_sup_of_le hv fun _ a ↦ a
-
-theorem multipliable_one_add_of_summable_prod {f : ι → α} (h : Summable (∏ i ∈ ·, f i)) :
-    Multipliable (1 + f ·) := by
-  obtain ⟨a, ha⟩ := h
-  exact ⟨a, hasProd_one_add_of_hasSum_prod ha⟩
-
-end HasProd
-
 namespace PowerSeries
 
 variable {R : Type*}
@@ -57,16 +27,6 @@ theorem le_order_prod [CommSemiring R] {ι : Type*} [DecidableEq ι]
     rw [Finset.sum_insert ha, Finset.prod_insert ha]
     refine le_trans ?_ (le_order_mul _ _)
     apply add_le_add_left ih
-
-theorem inf_order_le_order_sum [Semiring R] {ι : Type*} [DecidableEq ι]
-    (f : ι → R⟦X⟧) (s : Finset ι) :
-    ⨅ i ∈ s, (f i).order ≤ (∑ i ∈ s, f i).order := by
-  induction s using Finset.induction with
-  | empty => simp
-  | insert a s ha ih =>
-    rw [Finset.sum_insert ha]
-    rw [Finset.iInf_insert]
-    exact le_trans (min_le_min_left _ ih) (PowerSeries.min_order_le_order_add _ _)
 
 variable {R : Type*}
 variable [TopologicalSpace R] [CommSemiring R]
