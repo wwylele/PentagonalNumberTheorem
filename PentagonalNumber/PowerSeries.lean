@@ -48,11 +48,6 @@ namespace PowerSeries
 
 variable {R : Type*}
 
-@[simp]
-theorem order_neg [Ring R] (a : R⟦X⟧) : (-a).order = a.order := by
-  simp_rw [PowerSeries.order_eq, map_neg, neg_eq_zero, neg_ne_zero]
-  rw [← PowerSeries.order_eq]
-
 theorem le_order_prod [CommSemiring R] {ι : Type*} [DecidableEq ι]
     (f : ι → R⟦X⟧) (s : Finset ι) :
     ∑ i ∈ s, (f i).order ≤ (∏ i ∈ s, f i).order := by
@@ -72,27 +67,6 @@ theorem inf_order_le_order_sum [Semiring R] {ι : Type*} [DecidableEq ι]
     rw [Finset.sum_insert ha]
     rw [Finset.iInf_insert]
     exact le_trans (min_le_min_left _ ih) (PowerSeries.min_order_le_order_add _ _)
-
-theorem le_order_one_sub_prod_one_add [CommRing R] {ι : Type*} [DecidableEq ι]
-    (f : ι → R⟦X⟧) (s : Finset ι) :
-    ⨅ i ∈ s, (f i).order ≤ (1 - ∏ i ∈ s, (1 + f i)).order := by
-  rw [Finset.prod_one_add]
-  rw [Finset.sum_eq_add_sum_diff_singleton (show ∅ ∈ s.powerset by simp)]
-  rw [Finset.prod_empty, ← sub_sub, sub_self, zero_sub, order_neg]
-  refine le_trans ?_ (inf_order_le_order_sum _ _)
-  apply le_iInf
-  intro t
-  apply le_iInf
-  intro ht
-  rw [Finset.mem_sdiff, Finset.mem_powerset, Finset.mem_singleton] at ht
-  obtain ⟨hst, ht0⟩ := ht
-  obtain ⟨a, ha⟩ := Finset.nonempty_iff_ne_empty.mpr ht0
-  refine le_trans ?_ (le_order_prod _ _)
-  trans ⨅ i ∈ t, (f i).order
-  · exact iInf_le_iInf_of_subset hst
-  · apply iInf_le_of_le a
-    rw [iInf_pos ha]
-    apply Finset.single_le_sum (by simp) ha
 
 variable {R : Type*}
 variable [TopologicalSpace R] [CommSemiring R]
