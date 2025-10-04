@@ -17,18 +17,6 @@ open scoped PowerSeries.WithPiTopology
 namespace PowerSeries
 
 variable {R : Type*}
-
-theorem le_order_prod [CommSemiring R] {ι : Type*} [DecidableEq ι]
-    (f : ι → R⟦X⟧) (s : Finset ι) :
-    ∑ i ∈ s, (f i).order ≤ (∏ i ∈ s, f i).order := by
-  induction s using Finset.induction with
-  | empty => simp
-  | insert a s ha ih =>
-    rw [Finset.sum_insert ha, Finset.prod_insert ha]
-    refine le_trans ?_ (le_order_mul _ _)
-    apply add_le_add_left ih
-
-variable {R : Type*}
 variable [TopologicalSpace R] [CommSemiring R]
 
 theorem WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
@@ -178,74 +166,3 @@ theorem pentagonalNumberTheorem_intPos_powerSeries
     ∑' (k : ℤ), (Int.negOnePow k : R⟦X⟧) * X ^ (k * (3 * k - 1) / 2).toNat := by
   rw [pentagonalNumberTheorem_intNeg_powerSeries, ← neg_injective.tsum_eq (by simp)]
   exact tsum_congr fun k ↦ congr($(by simp) * X ^ (Int.toNat ($(by ring_nf) / 2)))
-
-/-
-namespace Nat.Partition
-
-theorem le_of_mem_parts {n : ℕ} {p : Partition n} {m : ℕ} (h : m ∈ p.parts) :
-    m ≤ n := by
-  rw [← p.parts_sum]
-  exact Multiset.le_sum_of_mem h
-
-variable {R : Type*}
-
-theorem multipliable_genFun [CommSemiring R] [TopologicalSpace R] (f : ℕ → ℕ → R) :
-    Multipliable fun m ↦ (1 + ∑' n, f (m + 1) (n + 1) • X ^ ((m + 1) * (n + 1)) : R⟦X⟧) := by ...
-
-noncomputable
-def genFun [CommSemiring R] (f : ℕ → ℕ → R) :=
-  PowerSeries.mk fun d ↦ ∑ p : d.Partition, ∏ m ∈ p.parts.toFinset, f m (p.parts.count m)
-
-
-theorem coeff_genFun [CommSemiring R] [TopologicalSpace R] [T2Space R] (f : ℕ → ℕ → R) :
-    genFun f =
-    ∏' m, (1 + ∑' n, f (m + 1) (n + 1) • X ^ ((m + 1) * (n + 1)) : R⟦X⟧) := by
-  apply (HasProd.tprod_eq ?_).symm
-  rw [HasProd, PowerSeries.WithPiTopology.tendsto_iff_coeff_tendsto]
-  intro d
-  apply tendsto_atTop_of_eventually_const
-  show ∀ s ≥ Finset.range (d + 1), _
-  intro s hs
-  rw [PowerSeries.coeff_prod]
-  rw [genFun, PowerSeries.coeff_mk]
-  symm
-  refine Finset.sum_of_injOn (fun p ↦ Finsupp.mk p.parts.toFinset
-    (fun m ↦ p.parts.count m * m) (fun m ↦ ?_)) ?_ ?_ ?_ ?_
-  · simpa using fun hm ↦ Nat.ne_zero_of_lt <| p.parts_pos hm
-  · apply Function.Injective.injOn
-    intro p q h
-    rw [Finsupp.mk.injEq] at h
-    obtain ⟨hfinset, hcount⟩ := h
-    rw [Nat.Partition.ext_iff, Multiset.ext]
-    intro m
-    obtain rfl | h0 := Nat.eq_zero_or_pos m
-    · trans 0
-      · rw [Multiset.count_eq_zero]
-        exact fun h ↦ (lt_self_iff_false _).mp <| p.parts_pos h
-      · symm
-        rw [Multiset.count_eq_zero]
-        exact fun h ↦ (lt_self_iff_false _).mp <| q.parts_pos h
-    · exact Nat.eq_of_mul_eq_mul_right h0 <| funext_iff.mp hcount m
-  · suffices ∀ (p : d.Partition), ∑ m ∈ s, Multiset.count m p.parts * m = d ∧
-        p.parts.toFinset ⊆ s by simpa
-    intro p
-    have hp : p.parts.toFinset ⊆ s := by
-      refine le_trans ?_ hs
-      intro m
-      rw [Multiset.mem_toFinset, Finset.mem_range]
-      exact fun h ↦ Nat.lt_add_one_of_le (le_of_mem_parts h)
-    constructor
-    · simp_rw [← p.parts_sum, Finset.sum_multiset_count, smul_eq_mul]
-      symm
-      apply Finset.sum_subset hp (by aesop)
-    · exact hp
-  · intro f hf hf'
-    simp at hf'
-    ...
-  · intro p
-
-    ...
-
-
-end Nat.Partition
--/
