@@ -197,7 +197,7 @@ theorem genFun_mul_genFun {f g : ℕ+ → ℕ → M}
     (hf : (Function.mulSupport (f · 0)).Finite) (hg : (Function.mulSupport (g · 0)).Finite) :
     genFun f * genFun g = genFun fun i c ↦ ∑ j ∈ Finset.antidiagonal c, f i j.1 * g i j.2 := by
   let _ : TopologicalSpace M := ⊥
-  let _ : DiscreteTopology M := forall_open_iff_discrete.mp fun s ↦ trivial
+  have _ : DiscreteTopology M := ⟨rfl⟩
   let fg := fun i c ↦ ∑ j ∈ Finset.antidiagonal c, f i j.1 * g i j.2
   have hfg : (Function.mulSupport (fg · 0)).Finite := finite_mulSupport_mul hf hg
 

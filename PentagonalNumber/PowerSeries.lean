@@ -14,36 +14,8 @@ for power series.
 open PowerSeries Filter
 open scoped PowerSeries.WithPiTopology
 
-namespace PowerSeries
-
-variable {R : Type*}
-variable [TopologicalSpace R] [CommSemiring R]
-
-theorem WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
-    {ι : Type*} [LinearOrder ι] [LocallyFiniteOrderBot ι] {f : ι → R⟦X⟧}
-    (h : Tendsto (fun i ↦ (f i).order) atTop (nhds ⊤)) :
-    Multipliable (fun i ↦ 1 + f i) := by
-  obtain hempty | hempty := isEmpty_or_nonempty ι
-  · apply multipliable_empty
-  apply multipliable_one_add_of_summable_prod
-  rw [summable_iff_summable_coeff]
-  intro n
-  apply summable_of_finite_support
-  simp_rw [ENat.tendsto_nhds_top_iff_natCast_lt, eventually_atTop] at h
-  obtain ⟨i, hi⟩ := h n
-  apply Set.Finite.subset (Finset.finite_toSet (Finset.Iio i).powerset)
-  suffices ∀ (s : Finset ι), (coeff n) (∏ i ∈ s, f i) ≠ 0 → ↑s ⊆ Set.Iio i by simpa
-  intro s hs
-  contrapose! hs
-  obtain ⟨x, hxs, hxi⟩ := Set.not_subset.mp hs
-  rw [Set.mem_Iio, not_lt] at hxi
-  refine coeff_of_lt_order _<| (hi x hxi).trans_le (le_trans ?_ (le_order_prod _ _))
-  apply Finset.single_le_sum (by simp) hxs
-
-end PowerSeries
 
 variable (R : Type*) [CommRing R]
-
 
 namespace Pentagonal
 
@@ -63,7 +35,7 @@ theorem summable_γ_powerSeries [TopologicalSpace R] (N : ℕ) :
 theorem multipliable_pentagonalLhs_powerSeries' [Nontrivial R] [TopologicalSpace R] (N : ℕ) :
     Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + N + 1)) := by
   simp_rw [sub_eq_add_neg]
-  apply PowerSeries.WithPiTopology.multipliable_one_add_of_order_tendsto_atTop_nhds_top
+  apply PowerSeries.WithPiTopology.multipliable_one_add_of_tendsto_order_atTop_nhds_top
   refine ENat.tendsto_nhds_top_iff_natCast_lt.mpr (fun n ↦ eventually_atTop.mpr ⟨n, ?_⟩)
   intro m hm
   rw [PowerSeries.order_neg]
