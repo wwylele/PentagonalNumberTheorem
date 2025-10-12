@@ -2,12 +2,11 @@ import PentagonalNumber.Complex
 import PentagonalNumber.Generic
 import PentagonalNumber.Old
 import PentagonalNumber.PowerSeries
-import PentagonalNumber.WIP_Partition
+import PentagonalNumber.Partition
 
 /-!
 # Pentagonal number theorem
 
-## Main theorems
 * For power series (`PowerSeries.lean`)
   * `multipliable_pentagonalLhs_powerSeries` - multipliability of LHS
   * `pentagonalNumberTheorem_powerSeries` - LHS = sum over Nat
@@ -25,10 +24,13 @@ import PentagonalNumber.WIP_Partition
   * `pentagonalNumberTheorem_intNeg_complex` - LHS = sum over Int, opposite order
     * `summable_pentagonalRhs_intNeg_complex` - summability of RHS
 * `Generic.lean` contains the algebraic part shared by both power series and complex numbers.
-* `partitionFunctionSum` - Recurrence formula for partition function using pentagonal numbers
-  * This is still in the `Old.lean` file with complicated proof
 
-## Other files
-* `Old.lean` comtains a (very long) combinatorial proof
-* `WIP_Partition.lean` contains my attempt to develop a general framework for generating functions.
+# Theorems about partition
+
+* `Nat.Partition.glaisher_theorem` - Glaisher's theorem
+* `Nat.Partition.sum_partition` - Pentagonal number recurrence for partitions
+
+# Other files
+* `Old.lean` contains a (very long) combinatorial proof of pentagonal number theorem
+
 -/
