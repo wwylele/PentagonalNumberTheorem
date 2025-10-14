@@ -45,8 +45,16 @@ theorem pentagonal_toNat_injective :
   zify at h
   simpa [pentagonal_nonneg] using h
 
-namespace Nat.Partition
+theorem Finset.finsuppAntidiag_mono {ι : Type*} {μ : Type*}
+    [DecidableEq ι] [AddCommMonoid μ] [HasAntidiagonal μ] [DecidableEq μ]
+    {s t : Finset ι} (h : s ⊆ t) (n : μ) :
+    finsuppAntidiag s n ⊆ finsuppAntidiag t n := by
+  intro a
+  simp_rw [Finset.mem_finsuppAntidiag']
+  rintro ⟨hsum, hmem⟩
+  exact ⟨hsum, hmem.trans h⟩
 
+namespace Nat.Partition
 
 open PowerSeries Finset
 open scoped PowerSeries.WithPiTopology
@@ -78,163 +86,178 @@ theorem genFun_term_summable (f : ℕ → ℕ → M) (i : ℕ) :
 
 variable [T2Space M]
 
+theorem injOn_sub_one_parts {n : ℕ} (p : Partition n) :
+    Set.InjOn (fun x ↦ x - 1) p.parts.toFinset := by
+  intro a ha b hb
+  exact tsub_inj_left (p.parts_pos (by simpa using ha)) (p.parts_pos (by simpa using hb))
+
+theorem map_sub_one_parts_subset {n : ℕ} (p : Partition n) :
+    (Multiset.map (fun x ↦ x - 1) p.parts).toFinset ⊆ Finset.range n := by
+  intro m
+  rw [Multiset.mem_toFinset, Finset.mem_range]
+  suffices ∀ x ∈ p.parts, x - 1 = m → m < n by simpa
+  rintro x h1 rfl
+  exact Nat.sub_one_lt_of_le (p.parts_pos h1) (le_of_mem_parts h1)
+
+theorem mapsTo_sub_one_parts {n : ℕ} (p : Partition n) :
+    Set.MapsTo (fun x ↦ x - 1) p.parts.toFinset (Finset.range n) := by
+  intro a ha
+  apply Finset.mem_of_subset (map_sub_one_parts_subset p)
+  rw [Multiset.mem_toFinset, Multiset.mem_map]
+  exact ⟨a, by simpa using ha⟩
+
+def toFinsuppAntidiag {n : ℕ} (p : Partition n) : ℕ →₀ ℕ where
+  toFun m := p.parts.count (m + 1) * (m + 1)
+  support := (p.parts.map (· - 1)).toFinset
+  mem_support_toFun m := by
+    suffices (∃ a ∈ p.parts, a - 1 = m) ↔ m + 1 ∈ p.parts by simpa
+    trans (∃ a ∈ p.parts, a = m + 1)
+    · refine ⟨fun ⟨a, h1, h2⟩ ↦ ⟨a, h1, ?_⟩, fun ⟨a, h1, h2⟩ ↦ ⟨a, h1, Nat.sub_eq_of_eq_add h2⟩⟩
+      exact Nat.eq_add_of_sub_eq (Nat.one_le_of_lt (p.parts_pos h1)) h2
+    · simp
+
+theorem toFinsuppAntidiag_injective (n : ℕ) :
+    Function.Injective (toFinsuppAntidiag (n := n)) := by
+  unfold toFinsuppAntidiag
+  intro p q h
+  rw [Finsupp.mk.injEq] at h
+  obtain ⟨hfinset, hcount⟩ := h
+  rw [Nat.Partition.ext_iff, Multiset.ext]
+  intro m
+  obtain rfl | h0 := Nat.eq_zero_or_pos m
+  · trans 0
+    · rw [Multiset.count_eq_zero]
+      exact fun h ↦ (lt_self_iff_false _).mp <| p.parts_pos h
+    · symm
+      rw [Multiset.count_eq_zero]
+      exact fun h ↦ (lt_self_iff_false _).mp <| q.parts_pos h
+  · refine Nat.eq_of_mul_eq_mul_right h0 <| ?_
+    convert funext_iff.mp hcount (m - 1) <;> exact (Nat.sub_eq_iff_eq_add h0).mp rfl
+
+theorem range_toFinsuppAntidiag (n : ℕ) :
+    Set.range (toFinsuppAntidiag (n := n)) ⊆ (Finset.range n).finsuppAntidiag n := by
+  unfold toFinsuppAntidiag
+  rw [Set.range_subset_iff]
+  intro p
+  suffices ∑ m ∈ Finset.range n, Multiset.count (m + 1) p.parts * (m + 1) = n by
+    simpa [map_sub_one_parts_subset p]
+  refine Eq.trans ?_ p.parts_sum
+  simp_rw [Finset.sum_multiset_count, smul_eq_mul]
+  refine (Finset.sum_of_injOn (· - 1) (injOn_sub_one_parts p) (mapsTo_sub_one_parts p) ?_ ?_).symm
+  · suffices ∀ i ∈ Finset.range n, (∀ x ∈ p.parts, x - 1 ≠ i) → i + 1 ∉ p.parts by simpa
+    intro i hi h
+    contrapose! h
+    exact ⟨i + 1, by simpa using h⟩
+  · intro i hi
+    suffices i - 1 + 1 = i by simp [this]
+    rw [Nat.sub_add_cancel (Nat.one_le_of_lt (p.parts_pos (by simpa using hi)))]
+
+theorem prod_coeff_eq_zero_of_notMem_range (f : ℕ → ℕ → M) {d : ℕ} {s : Finset ℕ}
+    {g : ℕ →₀ ℕ} (hg : g ∈ s.finsuppAntidiag d) (hg' : g ∉ Set.range (toFinsuppAntidiag (n := d))) :
+    ∏ i ∈ s, (coeff (g i)) (1 + ∑' (j : ℕ),
+    f (i + 1) (j + 1) • X ^ ((i + 1) * (j + 1)) : M⟦X⟧) = 0 := by
+  suffices ∃ i ∈ s, (coeff (g i)) ((1 : M⟦X⟧) +
+      ∑' (j : ℕ), f (i + 1) (j + 1) • X ^ ((i + 1) * (j + 1))) = 0 by
+    obtain ⟨i, hi, hi'⟩ := this
+    apply Finset.prod_eq_zero hi hi'
+  contrapose! hg' with hprod
+  have hdvd (x : ℕ) : x + 1 ∣ g x := by
+    by_cases hx : x ∈ s
+    · specialize hprod x hx
+      contrapose! hprod
+      rw [map_add, (genFun_term_summable f x).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
+      rw [show (0 : M) = 0 + ∑' (i : ℕ), 0 by simp]
+      congrm (?_ + ∑' (i : ℕ), ?_)
+      · suffices g x ≠ 0 by simp [this]
+        contrapose! hprod
+        simp [hprod]
+      · rw [map_smul, coeff_X_pow]
+        apply smul_eq_zero_of_right
+        suffices g x ≠ (x + 1) * (i + 1) by simp [this]
+        contrapose! hprod
+        simp [hprod]
+    · suffices g x = 0 by simp [this]
+      contrapose! hx
+      apply Finset.mem_of_subset (Finset.mem_finsuppAntidiag.mp hg).2
+      simpa using hx
+  rw [Set.mem_range]
+  refine ⟨Nat.Partition.mk (Finsupp.toMultiset
+    (Finsupp.mk (g.support.map (Function.Embedding.mk (· + 1) (add_left_injective 1)))
+    (fun i ↦ if i = 0 then 0 else g (i - 1) / i) ?_)) (by simp) ?_, ?_⟩
+  · intro a
+    suffices (∃ b, g b ≠ 0 ∧ b + 1 = a) ↔ a ≠ 0 ∧ a ≤ g (a - 1) by simpa
+    constructor
+    · rintro ⟨b, h1, rfl⟩
+      suffices b + 1 ≤ g b by simpa
+      exact Nat.le_of_dvd (Nat.pos_of_ne_zero h1) <| hdvd b
+    · rintro ⟨h1, h2⟩
+      use a - 1
+      grind
+  · obtain ⟨h1, h2⟩ := Finset.mem_finsuppAntidiag.mp hg
+    rw [← h1]
+    suffices ∑ x ∈ g.support, g x / (x + 1) * (x + 1) = ∑ x ∈ s, g x by simpa [Finsupp.sum]
+    rw [Finset.sum_subset h2 (by
+      intro x _
+      suffices g x = 0 → g x < x + 1 by simpa;
+      grind)]
+    apply Finset.sum_congr rfl
+    intro x _
+    exact Nat.div_mul_cancel <| hdvd x
+  · ext x
+    simpa [toFinsuppAntidiag] using Nat.div_mul_cancel <| hdvd x
+
+theorem prod_f_eq_prod_coeff
+    (f : ℕ → ℕ → M) {n : ℕ} (p : Partition n) {s : Finset ℕ} (hs : range n ≤ s) :
+    ∏ i ∈ p.parts.toFinset, f i (Multiset.count i p.parts) =
+    ∏ i ∈ s, coeff (p.toFinsuppAntidiag i)
+    (1 + ∑' (j : ℕ), f (i + 1) (j + 1) • X ^ ((i + 1) * (j + 1))) := by
+  refine Finset.prod_of_injOn (· - 1) (injOn_sub_one_parts _)
+    ((mapsTo_sub_one_parts p).mono_right hs) ?_ ?_
+  · intro x hx
+    suffices (∀ y ∈ p.parts, y - 1 ≠ x) →
+        (if x + 1 ∈ p.parts then (0 : M) else 1) +
+        (coeff (Multiset.count (x + 1) p.parts * (x + 1)))
+        (∑' (j : ℕ), f (x + 1) (j + 1) • X ^ ((x + 1) * (j + 1))) = 1 + ∑' (j : ℕ), 0
+      by simpa [toFinsuppAntidiag]
+    intro h
+    rw [(genFun_term_summable f x).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
+    have hx : x + 1 ∉ p.parts := by
+      contrapose! h
+      exact ⟨x + 1, by simpa using h⟩
+    simp [hx]
+  · suffices ∀ i ∈ p.parts,
+      0 + (f i (Multiset.count i p.parts) • (1 : M)) =
+      (if i - 1 + 1 ∈ p.parts then 0 else 1) +
+      (coeff (Multiset.count (i - 1 + 1) p.parts * (i - 1 + 1)))
+      (∑' (j : ℕ), f (i - 1 + 1) (j + 1) • X ^ ((i - 1 + 1) * (j + 1))) by simpa [toFinsuppAntidiag]
+    intro i hi
+    have hicancel : i - 1 + 1 = i := by
+      rw [Nat.sub_add_cancel (Nat.one_le_of_lt (p.parts_pos hi))]
+    have hpartcancel : Multiset.count i p.parts - 1 + 1 = Multiset.count i p.parts := by
+      rw [Nat.sub_add_cancel (Multiset.one_le_count_iff_mem.mpr hi)]
+    congrm $(by simp [hicancel, hi]) + ?_
+    rw [(genFun_term_summable f _).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
+    simp_rw [coeff_smul, coeff_X_pow]
+    rw [tsum_eq_single (Multiset.count i p.parts - 1) ?_]
+    · rw [mul_comm]
+      simp [hicancel, hpartcancel]
+    · intro b hb
+      suffices Multiset.count i p.parts * i ≠ i * (b + 1) by
+        simp [this, hicancel]
+      rw [mul_comm i, (mul_left_inj' (Nat.ne_zero_of_lt (p.parts_pos hi))).ne]
+      grind
+
 theorem hasProd_genFun (f : ℕ → ℕ → M) :
     HasProd (fun i ↦ (1 : M⟦X⟧) + ∑' j : ℕ, f (i + 1) (j + 1) • X ^ ((i + 1) * (j + 1)))
     (genFun f) := by
-
-  unfold HasProd
-  rw [WithPiTopology.tendsto_iff_coeff_tendsto]
-  intro d
-  refine tendsto_atTop_of_eventually_const (fun s (hs : s ≥ Finset.range d) ↦ ?_)
+  rw [HasProd, WithPiTopology.tendsto_iff_coeff_tendsto]
+  refine fun d ↦ tendsto_atTop_of_eventually_const (fun s (hs : s ≥ Finset.range d) ↦ ?_)
   rw [genFun, coeff_mk, coeff_prod]
-  symm
-
-  have hinj (p : Partition d) : Set.InjOn (fun x ↦ x - 1) p.parts.toFinset := by
-    intro a ha b hb
-    exact tsub_inj_left (p.parts_pos (by simpa using ha)) (p.parts_pos (by simpa using hb))
-
-  have hp (p : Partition d) : (Multiset.map (fun x ↦ x - 1) p.parts).toFinset ⊆ s := by
-    refine le_trans ?_ hs
-    intro m
-    rw [Multiset.mem_toFinset, Finset.mem_range]
-    suffices ∀ x ∈ p.parts, x - 1 = m → m < d by simpa
-    rintro x h1 rfl
-    exact Nat.sub_one_lt_of_le (p.parts_pos h1) (le_of_mem_parts h1)
-  have hmapto (p : Partition d) : Set.MapsTo (fun x ↦ x - 1) ↑p.parts.toFinset ↑s := by
-    intro a ha
-    apply Finset.mem_of_subset (hp p)
-    rw [Multiset.mem_toFinset, Multiset.mem_map]
-    exact ⟨a, by simpa using ha⟩
-
-  refine Finset.sum_of_injOn (fun p ↦ Finsupp.mk (p.parts.map (· - 1)).toFinset
-    (fun m ↦ p.parts.count (m + 1) * (m + 1)) (fun m ↦ ?_)) ?_ ?_ ?_ ?_
-  · suffices (∃ a ∈ p.parts, a - 1 = m) ↔ m + 1 ∈ p.parts by simpa
-    constructor
-    · rintro ⟨a, h1, rfl⟩
-      convert h1
-      refine Nat.sub_add_cancel (Nat.one_le_of_lt (p.parts_pos h1))
-    · intro h
-      use m + 1
-      simp [h]
-  · apply Function.Injective.injOn
-    intro p q h
-    rw [Finsupp.mk.injEq] at h
-    obtain ⟨hfinset, hcount⟩ := h
-    rw [Nat.Partition.ext_iff, Multiset.ext]
-    intro m
-    obtain rfl | h0 := Nat.eq_zero_or_pos m
-    · trans 0
-      · rw [Multiset.count_eq_zero]
-        exact fun h ↦ (lt_self_iff_false _).mp <| p.parts_pos h
-      · symm
-        rw [Multiset.count_eq_zero]
-        exact fun h ↦ (lt_self_iff_false _).mp <| q.parts_pos h
-    · refine Nat.eq_of_mul_eq_mul_right h0 <| ?_
-      convert funext_iff.mp hcount (m - 1) <;> exact (Nat.sub_eq_iff_eq_add h0).mp rfl
-  · suffices ∀ (x : d.Partition), ∑ m ∈ s, Multiset.count (m + 1) x.parts * (m + 1) = d ∧
-      (Multiset.map (fun x ↦ x - 1) x.parts).toFinset ⊆ s by simpa
-    intro p
-    constructor
-    · simp_rw [← p.parts_sum, Finset.sum_multiset_count, smul_eq_mul]
-      symm
-      refine Finset.sum_of_injOn (· - 1) (hinj p) (hmapto p) ?_ ?_
-      · suffices ∀ i ∈ s, (∀ x ∈ p.parts, x - 1 ≠ i) → i + 1 ∉ p.parts by simpa
-        intro i hi h
-        contrapose! h
-        exact ⟨i + 1, by simpa using h⟩
-      · intro i hi
-        suffices i - 1 + 1 = i by simp [this]
-        rw [Nat.sub_add_cancel (Nat.one_le_of_lt (p.parts_pos (by simpa using hi)))]
-    · exact hp p
-  · intro g hg hg'
-    suffices ∃ i ∈ s, (coeff (g i)) ((1 : M⟦X⟧) +
-        ∑' (j : ℕ), f (i + 1) (j + 1) • X ^ ((i + 1) * (j + 1))) = 0 by
-      obtain ⟨i, hi, hi'⟩ := this
-      apply Finset.prod_eq_zero hi hi'
-    contrapose! hg' with hprod
-    have hdvd (x : ℕ) : x + 1 ∣ g x := by
-      by_cases hx : x ∈ s
-      · specialize hprod x hx
-        contrapose! hprod
-        rw [map_add, (genFun_term_summable f x).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
-        rw [show (0 : M) = 0 + ∑' (i : ℕ), 0 by simp]
-        congrm (?_ + ∑' (i : ℕ), ?_)
-        · suffices g x ≠ 0 by simp [this]
-          contrapose! hprod
-          simp [hprod]
-        · rw [map_smul, coeff_X_pow]
-          apply smul_eq_zero_of_right
-          suffices g x ≠ (x + 1) * (i + 1) by simp [this]
-          contrapose! hprod
-          simp [hprod]
-      · suffices g x = 0 by simp [this]
-        contrapose! hx
-        apply Finset.mem_of_subset (Finset.mem_finsuppAntidiag.mp hg).2
-        simpa using hx
-    rw [Finset.coe_univ, Set.image_univ, Set.mem_range]
-    refine ⟨Nat.Partition.mk (Finsupp.toMultiset
-      (Finsupp.mk (g.support.map (Function.Embedding.mk (· + 1) (add_left_injective 1)))
-      (fun i ↦ if i = 0 then 0 else g (i - 1) / i) ?_)) (by simp) ?_, ?_⟩
-    · intro a
-      suffices (∃ b, g b ≠ 0 ∧ b + 1 = a) ↔ a ≠ 0 ∧ a ≤ g (a - 1) by simpa
-      constructor
-      · rintro ⟨b, h1, rfl⟩
-        suffices b + 1 ≤ g b by simpa
-        exact Nat.le_of_dvd (Nat.pos_of_ne_zero h1) <| hdvd b
-      · rintro ⟨h1, h2⟩
-        use a - 1
-        grind
-    · obtain ⟨h1, h2⟩ := Finset.mem_finsuppAntidiag.mp hg
-      rw [← h1]
-      suffices ∑ x ∈ g.support, g x / (x + 1) * (x + 1) = ∑ x ∈ s, g x by simpa [Finsupp.sum]
-      rw [Finset.sum_subset h2 (by
-        intro x _
-        suffices g x = 0 → g x < x + 1 by simpa;
-        grind)]
-      apply Finset.sum_congr rfl
-      intro x _
-      exact Nat.div_mul_cancel <| hdvd x
-    · ext x
-      simpa using Nat.div_mul_cancel <| hdvd x
-  · intro p _
-    refine Finset.prod_of_injOn (· - 1) (hinj _) (hmapto p) ?_ ?_
-    · intro x hx
-      suffices (∀ y ∈ p.parts, y - 1 ≠ x) →
-          (if x + 1 ∈ p.parts then (0 : M) else 1) +
-          (coeff (Multiset.count (x + 1) p.parts * (x + 1)))
-          (∑' (j : ℕ), f (x + 1) (j + 1) • X ^ ((x + 1) * (j + 1))) = 1 + ∑' (j : ℕ), 0
-        by simpa
-      intro h
-      rw [(genFun_term_summable f x).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
-      have hx : x + 1 ∉ p.parts := by
-        contrapose! h
-        exact ⟨x + 1, by simpa using h⟩
-      simp [hx]
-    · suffices ∀ i ∈ p.parts,
-        0 + (f i (Multiset.count i p.parts) • (1 : M)) =
-        (if i - 1 + 1 ∈ p.parts then 0 else 1) +
-        (coeff (Multiset.count (i - 1 + 1) p.parts * (i - 1 + 1)))
-        (∑' (j : ℕ), f (i - 1 + 1) (j + 1) • X ^ ((i - 1 + 1) * (j + 1))) by simpa
-      intro i hi
-      have hicancel : i - 1 + 1 = i := by
-        rw [Nat.sub_add_cancel (Nat.one_le_of_lt (p.parts_pos hi))]
-      have hpartcancel : Multiset.count i p.parts - 1 + 1 = Multiset.count i p.parts := by
-        rw [Nat.sub_add_cancel (Multiset.one_le_count_iff_mem.mpr hi)]
-      congrm $(by simp [hicancel, hi]) + ?_
-      rw [(genFun_term_summable f _).map_tsum _ (WithPiTopology.continuous_coeff _ _)]
-      rw [tsum_eq_single (Multiset.count i p.parts - 1) ?_]
-      · rw [coeff_smul, coeff_X_pow]
-        suffices Multiset.count i p.parts * i = i * Multiset.count i p.parts by
-          simp [hicancel, hpartcancel, this]
-        apply mul_comm
-      · intro b hb
-        rw [coeff_smul, coeff_X_pow]
-        suffices Multiset.count i p.parts * i ≠ i * (b + 1) by
-          simp [this, hicancel]
-        rw [mul_comm i]
-        rw [(mul_left_inj' (Nat.ne_zero_of_lt (p.parts_pos hi))).ne]
-        grind
-
+  refine (Finset.sum_of_injOn toFinsuppAntidiag (toFinsuppAntidiag_injective d).injOn ?_ ?_ ?_).symm
+  · refine Set.MapsTo.mono_right (Set.mapsTo_range _ _) ((range_toFinsuppAntidiag d).trans ?_)
+    simpa using Finset.finsuppAntidiag_mono hs.le _
+  · exact fun g hg hg' ↦ prod_coeff_eq_zero_of_notMem_range f hg (by simpa using hg')
+  · exact fun p _ ↦ prod_f_eq_prod_coeff f p hs.le
 
 def restricted (n : ℕ) (p : ℕ → Prop) [DecidablePred p] : Finset (n.Partition) :=
   Finset.univ.filter fun x ↦ ∀ i ∈ x.parts, p i
