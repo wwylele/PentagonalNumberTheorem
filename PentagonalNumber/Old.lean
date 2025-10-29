@@ -1655,13 +1655,13 @@ def equivPartitionDistincts : FerrersDiagram n ≃ Nat.Partition.distincts n whe
   invFun x := {
     delta := unfoldDelta (x.val.parts.sort (· ≥ ·))
     delta_pos := by
-      have hsort : (Multiset.sort (· ≥ ·) x.val.parts).Sorted (· ≥ ·) := by
+      have hsort : (Multiset.sort x.val.parts (· ≥ ·)).Sorted (· ≥ ·) := by
         apply Multiset.sort_sorted
-      have hsort' : (Multiset.sort (· ≥ ·) x.val.parts).Sorted (· > ·) := by
+      have hsort' : (Multiset.sort x.val.parts (· ≥ ·)).Sorted (· > ·) := by
         apply List.Sorted.gt_of_ge hsort
         obtain h := x.prop
         have h : x.val.parts.Nodup := by
-          simpa [Nat.Partition.distincts, -Finset.coe_mem] using h
+          simpa [Nat.Partition.distincts, -SetLike.coe_mem] using h
         revert h
         induction x.val.parts using Multiset.qind with | mk a
         simp
