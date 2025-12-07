@@ -2,19 +2,20 @@ import PentagonalNumber.Generic
 
 /-!
 
-# Pentagonal number theorem for complex numbers
+# Pentagonal number theorem for real/complex numbers
 
 This file proves the
 [pentagonal number theorem](https://en.wikipedia.org/wiki/Pentagonal_number_theorem)
-for complex numbers.
+for real/complex numbers.
 
 -/
 
 open Filter
+variable {K : Type*} [RCLike K]
 
 namespace Pentagonal
 
-theorem γ_bound (N n : ℕ) {x : ℂ} (hx : ‖x‖ < 1) :
+theorem γ_bound (N n : ℕ) {x : K} (hx : ‖x‖ < 1) :
     ‖γ N n x‖ ≤ ‖x‖ ^ ((N + 1) * n) * ∏' i, (1 + ‖x‖ ^ i) := by
   unfold γ
   rw [norm_mul, norm_prod, norm_pow]
@@ -40,14 +41,14 @@ theorem γ_bound (N n : ℕ) {x : ℂ} (hx : ‖x‖ < 1) :
     rw [Finset.prod_cons]
     exact one_le_mul_of_one_le_of_one_le (by simp) ih
 
-theorem summable_γ_complex (N : ℕ) {x : ℂ} (hx : ‖x‖ < 1) : Summable (γ N · x) := by
+theorem summable_γ_complex (N : ℕ) {x : K} (hx : ‖x‖ < 1) : Summable (γ N · x) := by
   rw [← summable_norm_iff]
   refine Summable.of_nonneg_of_le (by simp) (γ_bound N · hx) <| Summable.mul_right _ ?_
   simp_rw [pow_mul]
   apply summable_geometric_of_lt_one (by simp)
   exact (pow_lt_one_iff_of_nonneg (by simp) (by simp)).mpr hx
 
-theorem tsum_γ_bound (N : ℕ) {x : ℂ} (hx : ‖x‖ < 1) :
+theorem tsum_γ_bound (N : ℕ) {x : K} (hx : ‖x‖ < 1) :
     ‖∑' n, γ N n x‖ ≤ (1 - ‖x‖)⁻¹ * ∏' i, (1 + ‖x‖ ^ i) := by
   obtain hsum := (summable_γ_complex N hx).norm
   have hx' : ‖x‖ ^ (N + 1) < 1 := (pow_lt_one_iff_of_nonneg (by simp) (by simp)).mpr hx
@@ -67,7 +68,7 @@ theorem tsum_γ_bound (N : ℕ) {x : ℂ} (hx : ‖x‖ < 1) :
     Real.summable_log_one_add_of_summable <| by simpa using hx)]
   apply Real.exp_nonneg
 
-theorem multipliable_pentagonalLhs_complex' (N : ℕ) {x : ℂ} (hx : ‖x‖ < 1) :
+theorem multipliable_pentagonalLhs_complex' (N : ℕ) {x : K} (hx : ‖x‖ < 1) :
     Multipliable (fun n ↦ 1 - x ^ (n + N + 1)) := by
   simp_rw [sub_eq_add_neg]
   apply multipliable_one_add_of_summable
@@ -78,11 +79,11 @@ end Pentagonal
 
 open Pentagonal
 
-theorem multipliable_pentagonalLhs_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem multipliable_pentagonalLhs_complex {x : K} (hx : ‖x‖ < 1) :
     Multipliable (fun n ↦ 1 - x ^ (n + 1)) := by
   simpa using multipliable_pentagonalLhs_complex' 0 hx
 
-theorem summable_pentagonalRhs_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem summable_pentagonalRhs_complex {x : K} (hx : ‖x‖ < 1) :
     Summable (fun (k : ℕ) ↦
     ((-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)))) := by
   simp_rw [mul_sub]
@@ -98,11 +99,11 @@ theorem summable_pentagonalRhs_complex {x : ℂ} (hx : ‖x‖ < 1) :
   · rw [Nat.le_div_iff_mul_le (by simp)]
     exact Nat.mul_le_mul (by simp) (by simp)
 
-/-- **Pentagonal number theorem** for complex numbers, summation over natural numbers.
+/-- **Pentagonal number theorem** for real/complex numbers, summation over natural numbers.
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
 \sum_{k=0}^{\infty} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) $$ -/
-theorem pentagonalNumberTheorem_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem pentagonalNumberTheorem_complex {x : K} (hx : ‖x‖ < 1) :
     ∏' n, (1 - x ^ (n + 1)) =
     ∑' k, (-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)) := by
   refine pentagonalNumberTheorem_generic ?_ ?_ ?_ ?_ ?_
@@ -121,7 +122,7 @@ theorem pentagonalNumberTheorem_complex {x : ℂ} (hx : ‖x‖ < 1) :
       simp_rw [eventually_map, Function.comp_apply, eventually_atTop]
       exact ⟨0, fun N _ ↦ tsum_γ_bound N hx⟩
 
-theorem summable_pentagonalRhs_intNeg_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem summable_pentagonalRhs_intNeg_complex {x : K} (hx : ‖x‖ < 1) :
     Summable (fun (k : ℤ) ↦ (-1) ^ k * x ^ (k * (3 * k + 1) / 2)) := by
   apply Summable.of_add_one_of_neg_add_one
   all_goals
@@ -139,23 +140,25 @@ theorem summable_pentagonalRhs_intNeg_complex {x : ℂ} (hx : ‖x‖ < 1) :
   apply zpow_le_zpow_right_of_le_one₀ h0 hx.le
   grind
 
-/-- **Pentagonal number theorem** for complex numbers, summation over integers, opposite order.
+/-- **Pentagonal number theorem** for real/complex numbers, summation over integers, opposite order.
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k + 1)/2} $$ -/
-theorem pentagonalNumberTheorem_intNeg_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem pentagonalNumberTheorem_intNeg_complex {x : K} (hx : ‖x‖ < 1) :
     ∏' n, (1 - x ^ (n + 1)) =
     ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k + 1) / 2) := by
   rw [← tsum_nat_add_neg_add_one (summable_pentagonalRhs_intNeg_complex hx),
     pentagonalNumberTheorem_complex hx]
   refine tsum_congr fun k ↦ ?_
   rw [sub_eq_add_neg _ (x ^ _), mul_add, ← neg_mul_comm]
-  congrm $(by norm_cast) * $(by norm_cast) + ?_ * $(by norm_cast)
-  trans (-1) ^ (k + 1)
-  · ring
-  · rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
-    norm_cast
+  congrm $(by norm_cast) * $(by norm_cast) + ?_ * ?_
+  · trans (-1) ^ (k + 1)
+    · ring
+    · rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
+      norm_cast
+  · rw [← zpow_natCast]
+    congr
 
-theorem summable_pentagonalRhs_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem summable_pentagonalRhs_intPos_complex {x : K} (hx : ‖x‖ < 1) :
     Summable (fun (k : ℤ) ↦ (-1) ^ k * x ^ (k * (3 * k - 1) / 2)) := by
   rw [← neg_injective.summable_iff (by intro x hx; contrapose! hx; use -x; simp)]
   convert summable_pentagonalRhs_intNeg_complex hx
@@ -163,10 +166,10 @@ theorem summable_pentagonalRhs_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
   congrm ?_ * x ^ ($(by ring_nf) / 2)
   rw [zpow_neg, ← inv_zpow, inv_neg, inv_one]
 
-/-- **Pentagonal number theorem** for complex numbers, summation over integers, classic order.
+/-- **Pentagonal number theorem** for real/complex numbers, summation over integers, classic order.
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = \sum_{k=-\infty}^{\infty} (-1)^k x^{k(3k - 1)/2} $$ -/
-theorem pentagonalNumberTheorem_intPos_complex {x : ℂ} (hx : ‖x‖ < 1) :
+theorem pentagonalNumberTheorem_intPos_complex {x : K} (hx : ‖x‖ < 1) :
     ∏' n, (1 - x ^ (n + 1)) =
     ∑' (k : ℤ), (-1) ^ k * x ^ (k * (3 * k - 1) / 2) := by
   rw [pentagonalNumberTheorem_intNeg_complex hx, ← neg_injective.tsum_eq (by simp)]
