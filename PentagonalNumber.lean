@@ -27,7 +27,6 @@ import PentagonalNumber.Partition
 
 # Theorems about partition
 
-* `Nat.Partition.glaisher_theorem` - Glaisher's theorem
 * `Nat.Partition.sum_partition` - Pentagonal number recurrence for partitions
 
 # Other files

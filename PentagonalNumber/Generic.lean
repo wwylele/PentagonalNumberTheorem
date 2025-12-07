@@ -118,7 +118,6 @@ theorem pentagonalLhs_γ0 [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
       ext k
       rw [pow_add, pow_add, mul_assoc (x ^ k), mul_comm (x ^ k), mul_assoc (x ^ 1 * x ^ 1)]
     apply Summable.mul_left _ hsum
-
   rw [tprod_one_sub_ordererd (by simpa [Nat.Iio_eq_range] using hsum') (by simpa using h 0)]
   simp_rw [Nat.Iio_eq_range, sub_sub, sub_right_inj, Summable.tsum_eq_zero_add hsum']
   conv in fun k ↦ x ^ (k + 1 + 1) * _ =>

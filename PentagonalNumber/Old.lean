@@ -927,7 +927,6 @@ theorem getLast_lt_of_notToDown (hn : 0 < n) (x : FerrersDiagram n)
     unfold diagSize
     simpa using List.lengthWhile_le_length _ x.delta
   obtain h := hdown.trans hdiag
-
   by_contra! hassump
   obtain heq | hlt := eq_or_lt_of_le hassump
   · contrapose! hpospen
@@ -1091,15 +1090,11 @@ theorem getLast_up (hn : 0 < n) (x : FerrersDiagram n)
   simp_rw [List.getLast_eq_getElem ((x.up hn hdown hpospen).delta_ne_nil hn)]
   simp_rw [delta_up]
   simp_rw [putDiagFun]
-
   rw [List.getElem_set]
-
   have h1 : 1 < x.delta.length := x.one_lt_length hn hdown hpospen
-
   have htake : List.take (x.delta.length - 1) x.delta ≠ [] := by
     suffices x.delta.length - 1 ≠ 0 ∧ x.delta ≠ [] by simpa
     grind
-
   have hh : x.delta.getLast (x.delta_ne_nil hn) <
       (takeLastFun x.delta (x.delta_ne_nil hn))[x.delta.length - 1 - 1]'(by simpa using h1) := by
     simp only [takeLastFun]
@@ -1117,7 +1112,6 @@ theorem getLast_up (hn : 0 < n) (x : FerrersDiagram n)
     simp only [lt_add_iff_pos_left, gt_iff_lt]
     apply List.forall_iff_forall_mem.mp x.delta_pos
     exact List.mem_of_mem_take (List.getLast_mem _)
-
   split_ifs with h
   · have : x.delta.getLast (x.delta_ne_nil hn) - 1 = x.delta.length - 1 - 1 := by
       simpa [takeLastFun] using h
@@ -1190,36 +1184,29 @@ theorem up_notPentagonal (hn : 0 < n) (x : FerrersDiagram n)
   simp only [List.length_set, List.length_updateLast, List.length_take, tsub_le_iff_right,
     le_add_iff_nonneg_right, zero_le, inf_of_le_left] at hgetlast
   simp_rw [← hsetlast'] at hgetlast
-
   have hgetlast' :
       (takeLastFun x.delta (x.delta_ne_nil hn))[x.delta.length - 1 - 1]'(by
       simpa [takeLastFun] using x.one_lt_length hn hdown hpospen) ≤
       x.delta.length - 1 := by
     simpa using hgetlast
   simp [takeLastFun] at hgetlast'
-
   have hl : x.delta.length - 1 =
       ((List.take (x.delta.length - 1) x.delta).updateLast
       (· + x.delta.getLast (x.delta_ne_nil hn))).length := by simp
-
   have he : ((List.take (x.delta.length - 1) x.delta).updateLast
       (· + x.delta.getLast (x.delta_ne_nil hn))) ≠ [] := by
     suffices x.delta.length - 1 ≠ 0 by
       simpa [x.delta_ne_nil hn]
     apply ne_of_gt
     simpa using x.one_lt_length hn hdown hpospen
-
   conv at hgetlast' in x.delta.length - 1 - 1 =>
     rw [hl]
   rw [← List.getLast_eq_getElem he] at hgetlast'
   rw [List.getLast_updateLast _ _ (by simpa using he)] at hgetlast'
-
   have hwhat : (List.take (x.delta.length - 1) x.delta).getLast (by simpa using he) = 0 := by
     simpa [← hsetlast'] using hgetlast'
-
   rw [List.getLast_take] at hwhat
   rw [List.getElem?_eq_getElem (by grind)] at hwhat
-
   have hwhat' : x.delta[x.delta.length - 1 - 1] = 0 := by simpa using hwhat
   have hwhat'' : 0 < x.delta[x.delta.length - 1 - 1] := by
     apply List.forall_iff_forall_mem.mp x.delta_pos
@@ -1240,7 +1227,6 @@ theorem up_notNegPentagonal (hn : 0 < n) (x : FerrersDiagram n)
     (hdown : ¬ x.IsToDown hn)
     (hpospen : ¬ x.IsPosPentagonal hn) :
     ¬ (x.up hn hdown hpospen).IsNegPentagonal hn := by
-
   rw [IsNegPentagonal, and_comm, not_and]
   intro h
   exact (x.up_notPentagonal hn hdown hpospen h).ne.symm
@@ -1279,25 +1265,20 @@ theorem up_down (hn : 0 < n) (x : FerrersDiagram n)
     (x.down_notPosPentagonal hn hdown hnegpen) = x := by
   ext1
   simp_rw [delta_up, delta_down]
-
   have h1 : takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown) ≠ [] := by
     simpa using x.delta_ne_nil hn
-
   have h2 : x.diagSize + 1 ≤
       (takeDiagFun x.delta x.diagSize (x.diagSize_lt_length hn hdown)).getLast h1 := by
     obtain h := x.diagSize_add_one_lt hn hdown hnegpen
     unfold takeDiag' takeDiag at h
     exact h.le
-
   conv in (takeLastFun _ _) =>
     rw [takeLastFun_putLastFun _ _ h1 h2]
-
   have h3 (h : x.diagSize < x.delta.length) :
       x.delta[x.diagSize] - 1 + 1 = x.delta[x.diagSize] := by
     rw [Nat.sub_add_cancel ?_]
     apply List.forall_iff_forall_mem.mp (x.delta_pos)
     simp
-
   simp [h3]
 
 /-- `up` is the right inverse of `down`. -/
@@ -1512,7 +1493,7 @@ match l with
     rw [← head_foldDelta]
     simp [h]
 
-theorem foldDelta_sorted (l : List ℕ) : (foldDelta l).Sorted (· ≥ ·) :=
+theorem foldDelta_sorted (l : List ℕ) : (foldDelta l).Pairwise (· ≥ ·) :=
 match l with
 | [] => by simp [foldDelta]
 | x :: xs => by
@@ -1521,12 +1502,12 @@ match l with
   | nil => simp
   | cons x' xs' =>
     simp only
-    apply List.Sorted.cons (by simp)
+    apply List.Pairwise.cons_cons_of_trans (by simp)
     rw [← h]
     apply foldDelta_sorted
 
 theorem foldDelta_sorted_of_pos {l : List ℕ} (hpos : l.Forall (0 < ·)) :
-    (foldDelta l).Sorted (· > ·) :=
+    (foldDelta l).Pairwise (· > ·) :=
 match l with
 | [] => by simp [foldDelta]
 | x :: xs => by
@@ -1536,7 +1517,7 @@ match l with
   | nil => simp
   | cons x' xs' =>
     simp only
-    apply List.Sorted.cons (by simpa using hpos.1)
+    apply List.Pairwise.cons_cons_of_trans (by simpa using hpos.1)
     rw [← h]
     apply foldDelta_sorted_of_pos hpos.2
 
@@ -1561,7 +1542,7 @@ match l with
   rw [unfoldDelta, List.length_cons, length_unfoldDelta]
   simp
 
-theorem unfoldDelta_pos_of_sorted {l : List ℕ} (hsort : l.Sorted (· > ·))
+theorem unfoldDelta_pos_of_sorted {l : List ℕ} (hsort : l.Pairwise (· > ·))
     (hpos : l.Forall (0 < ·)) :
     (unfoldDelta l).Forall (0 < ·) :=
 match l with
@@ -1569,28 +1550,28 @@ match l with
 | [x] => by simpa [unfoldDelta] using hpos
 | x :: y :: xs => by
   rw [unfoldDelta, List.forall_cons]
-  rw [List.sorted_cons_cons] at hsort
+  rw [List.pairwise_cons_cons_iff_of_trans] at hsort
   rw [List.forall_cons] at hpos
   constructor
   · exact Nat.sub_pos_of_lt hsort.1
   · exact unfoldDelta_pos_of_sorted hsort.2 hpos.2
 
-theorem sum_unfoldDelta' {l : List ℕ} (hsort : l.Sorted (· ≥ ·)) :
+theorem sum_unfoldDelta' {l : List ℕ} (hsort : l.Pairwise (· ≥ ·)) :
     (unfoldDelta l).sum = l.headI :=
 match l with
 | [] | [x] => by simp [unfoldDelta]
 | x :: y :: xs => by
-  rw [List.sorted_cons_cons] at hsort
+  rw [List.pairwise_cons_cons_iff_of_trans] at hsort
   rw [unfoldDelta, List.sum_cons, sum_unfoldDelta' hsort.2]
   suffices x - y + y = x by simpa
   refine Nat.sub_add_cancel hsort.1
 
-theorem sum_unfoldDelta {l : List ℕ} (hsort : l.Sorted (· ≥ ·)) :
+theorem sum_unfoldDelta {l : List ℕ} (hsort : l.Pairwise (· ≥ ·)) :
     (((unfoldDelta l).zipIdx 1).map fun p ↦ p.1 * p.2).sum = l.sum :=
 match l with
 | [] | [x] => by simp [unfoldDelta]
 | x :: y :: xs => by
-  rw [List.sorted_cons_cons] at hsort
+  rw [List.pairwise_cons_cons_iff_of_trans] at hsort
   rw [unfoldDelta]
   rw [List.sum_cons, List.zipIdx_cons, List.map_cons, List.sum_cons, List.zipIdx_succ]
   rw [← sum_unfoldDelta hsort.2]
@@ -1624,13 +1605,13 @@ match l with
     simp [unfoldDelta, ← h, unfoldDelta_foldDelta]
 
 @[simp]
-theorem foldDelta_unfoldDelta {l : List ℕ} (h : l.Sorted (· ≥ ·)) :
+theorem foldDelta_unfoldDelta {l : List ℕ} (h : l.Pairwise (· ≥ ·)) :
     foldDelta (unfoldDelta l) = l :=
 match l with
 | [] => by simp [foldDelta, unfoldDelta]
 | [x] => by simp [foldDelta, unfoldDelta]
 | x :: y :: xs => by
-  rw [List.sorted_cons_cons] at h
+  rw [List.pairwise_cons_cons_iff_of_trans] at h
   suffices y + (x - y) = x by
     simpa [unfoldDelta, foldDelta, (foldDelta_unfoldDelta h.2)]
   exact Nat.add_sub_of_le  h.1
@@ -1650,15 +1631,16 @@ def equivPartitionDistincts : FerrersDiagram n ≃ Nat.Partition.distincts n whe
       exact foldDelta_pos_of_pos (List.forall_iff_forall_mem.mp x.delta_pos) a h
     parts_sum := by simp [sum_foldDelta, x.delta_sum]
   }, by
-    simpa [Nat.Partition.distincts] using List.Sorted.nodup (foldDelta_sorted_of_pos x.delta_pos)
+    simpa [Nat.Partition.distincts] using List.Pairwise.nodup (foldDelta_sorted_of_pos x.delta_pos)
   ⟩
   invFun x := {
     delta := unfoldDelta (x.val.parts.sort (· ≥ ·))
     delta_pos := by
-      have hsort : (Multiset.sort x.val.parts (· ≥ ·)).Sorted (· ≥ ·) := by
-        apply Multiset.sort_sorted
-      have hsort' : (Multiset.sort x.val.parts (· ≥ ·)).Sorted (· > ·) := by
-        apply List.Sorted.gt_of_ge hsort
+      have hsort : (Multiset.sort x.val.parts (· ≥ ·)).Pairwise (· ≥ ·) := by
+        apply Multiset.pairwise_sort
+      have hsort' : (Multiset.sort x.val.parts (· ≥ ·)).Pairwise (· > ·) := by
+        rw [← List.sortedGT_iff_pairwise]
+        apply List.SortedGE.sortedGT_of_nodup (List.sortedGE_iff_pairwise.mpr hsort)
         obtain h := x.prop
         have h : x.val.parts.Nodup := by
           simpa [Nat.Partition.distincts, -SetLike.coe_mem] using h
@@ -1706,7 +1688,6 @@ theorem card_sub (hn : 0 < n) :
       (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length}.ncard -
     {x : FerrersDiagram n |
       (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length}.ncard := by
-
   have heven : {x : FerrersDiagram n | Even x.delta.length} =
     {x : FerrersDiagram n |
       (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ Even x.delta.length} ∪
@@ -1715,7 +1696,6 @@ theorem card_sub (hn : 0 < n) :
     rw [← Set.setOf_or]
     simp_rw [← or_and_right, or_not]
     simp
-
   have hodd : {x : FerrersDiagram n | ¬ Even x.delta.length} =
     {x : FerrersDiagram n |
       (x.IsPosPentagonal hn ∨ x.IsNegPentagonal hn) ∧ ¬ Even x.delta.length} ∪
@@ -1724,7 +1704,6 @@ theorem card_sub (hn : 0 < n) :
     rw [← Set.setOf_or]
     simp_rw [← or_and_right, or_not]
     simp
-
   rw [heven, hodd]
   rw [Set.ncard_union_eq (by
     rw [Set.disjoint_iff, ← Set.setOf_and]
@@ -2035,7 +2014,7 @@ theorem phiCoeff_eq_card_sub (hn : 0 < n) :
       apply (Set.ncard_inter_le_ncard_left _ _).trans
       rw [Set.setOf_or]
       apply (Set.ncard_union_le _ _).trans
-      rw [nonpos_iff_eq_zero, Nat.add_eq_zero]
+      rw [nonpos_iff_eq_zero, Nat.add_eq_zero_iff]
       rw [Set.ncard_eq_zero, Set.ncard_eq_zero]
       constructor
       all_goals
@@ -2062,7 +2041,6 @@ theorem phiCoeff_eq (n : ℕ) : phiCoeff n = phiCoeff' n := by
   rw [← FerrersDiagram.card_sub hn]
   rw [Set.ncard_eq_toFinset_card]
   rw [Set.ncard_eq_toFinset_card]
-
   rw [phiCoeff']
   let even := (Nat.Partition.distincts n).filter (Even ·.parts.card)
   let odd := (Nat.Partition.distincts n).filter (¬Even ·.parts.card)
@@ -2117,7 +2095,6 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial n (1 : 
   rw [Finset.sum_ite]
   rw [Finset.sum_const_zero, add_zero]
   unfold phiCoeff'
-
   let f (x : Finset ℕ+) (h : x ∈ s.powerset.filter (n = ∑ i ∈ ·, i.val)) : n.Partition := {
     parts := x.val.map (↑)
     parts_pos := by simp
@@ -2125,7 +2102,6 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial n (1 : 
       rw [Finset.mem_filter] at h
       simpa using h.2.symm
   }
-
   let g (x : n.Partition) (h : x ∈ Nat.Partition.distincts n) : Finset ℕ+ := Finset.mk
       (x.parts.map (Nat.toPNat')) (by
     refine (Multiset.nodup_map_iff_of_inj_on ?_).mpr (Finset.mem_filter.mp h).2
@@ -2134,7 +2110,6 @@ theorem eularPhi : HasProd (fun (n : ℕ+) ↦ (1 - PowerSeries.monomial n (1 : 
     simp_rw [Nat.toPNat'_coe] at hab
     simpa [x.parts_pos ha, x.parts_pos hb] using hab
   )
-
   refine Finset.sum_bij' f g ?_ ?_ ?_ ?_ ?_
   · intro x hx
     suffices (Multiset.map PNat.val x.val).Nodup by simpa [f, Nat.Partition.distincts]

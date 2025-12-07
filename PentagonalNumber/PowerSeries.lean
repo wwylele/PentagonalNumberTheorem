@@ -42,15 +42,11 @@ theorem multipliable_pentagonalLhs_powerSeries' [Nontrivial R] [TopologicalSpace
   refine lt_of_lt_of_le ?_ (PowerSeries.le_order_pow _ _)
   rw [PowerSeries.order_X, nsmul_one]
   norm_cast
-  exact lt_of_le_of_lt hm (by rw[add_assoc]; simp)
+  linarith
 
 end Pentagonal
 
 open Pentagonal
-
-theorem multipliable_pentagonalLhs_powerSeries [Nontrivial R] [TopologicalSpace R] :
-    Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + 1)) := by
-  simpa using multipliable_pentagonalLhs_powerSeries' R 0
 
 theorem summable_pentagonalRhs_powerSeries
     [Nontrivial R] [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] :
