@@ -19,21 +19,21 @@ variable (R : Type*) [CommRing R]
 
 namespace Pentagonal
 
-theorem summable_γ_powerSeries [TopologicalSpace R] (N : ℕ) :
-    Summable (γ N · (X : R⟦X⟧)) := by
+theorem summable_γ_powerSeries [TopologicalSpace R] (k : ℕ) :
+    Summable (γ k · (X : R⟦X⟧)) := by
   rw [PowerSeries.WithPiTopology.summable_iff_summable_coeff]
   refine fun n ↦ summable_of_finite_support <| Set.Finite.subset (Set.finite_Iic n) ?_
   simp_rw [Function.support_subset_iff, Set.mem_Iic]
-  intro k h
+  intro i h
   contrapose! h
   unfold γ
-  have : ¬ (N + 1) * k ≤ n := by
+  have : ¬ (k + 1) * i ≤ n := by
     rw [not_le]
-    exact h.trans_le <| Nat.le_mul_of_pos_left k (by simp)
+    exact h.trans_le <| Nat.le_mul_of_pos_left i (by simp)
   simp [PowerSeries.coeff_X_pow_mul', this]
 
-theorem multipliable_pentagonalLhs_powerSeries' [Nontrivial R] [TopologicalSpace R] (N : ℕ) :
-    Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + N + 1)) := by
+theorem multipliable_pentagonalLhs_powerSeries' [Nontrivial R] [TopologicalSpace R] (k : ℕ) :
+    Multipliable (fun n ↦ (1 : R⟦X⟧) - X ^ (n + k + 1)) := by
   simp_rw [sub_eq_add_neg]
   apply PowerSeries.WithPiTopology.multipliable_one_add_of_tendsto_order_atTop_nhds_top
   refine ENat.tendsto_nhds_top_iff_natCast_lt.mpr (fun n ↦ eventually_atTop.mpr ⟨n, ?_⟩)

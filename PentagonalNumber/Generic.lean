@@ -52,24 +52,24 @@ namespace Pentagonal
 /--
 We define an auxiliary sequence
 
-$$Γ_N = \sum_{n=0}^{\infty} γ_{N, n} =
-\sum_{n=0}^{\infty} \left( x^{(N+1)n} \prod_{i=0}^{n} 1 - x^{N + i + 1} \right)$$
+$$Γ_N = \sum_{n=0}^{\infty} γ_{k, n} =
+\sum_{n=0}^{\infty} \left( x^{(k+1)n} \prod_{i=0}^{n} 1 - x^{k + i + 1} \right)$$
 -/
-def γ (N n : ℕ) (x : R) : R :=
-  x ^ ((N + 1) * n) * ∏ i ∈ Finset.range (n + 1), (1 - x ^ (N + i + 1))
+def γ (k n : ℕ) (x : R) : R :=
+  x ^ ((k + 1) * n) * ∏ i ∈ Finset.range (n + 1), (1 - x ^ (k + i + 1))
 
 /-- And a second auxiliary sequence
 
-$$ ψ_{N, n} = x^{(N+1)n} (x^{2N + n + 3} - 1) \prod_{i=0}^{n-1} 1 - x^{N + i + 2} $$ -/
-def ψ (N n : ℕ) (x : R) : R :=
-  x ^ ((N + 1) * n) * (x ^ (2 * N + n + 3) - 1) * ∏ i ∈ Finset.range n, (1 - x ^ (N + i + 2))
+$$ ψ_{k, n} = x^{(k+1)n} (x^{2N + n + 3} - 1) \prod_{i=0}^{n-1} 1 - x^{k + i + 2} $$ -/
+def ψ (k n : ℕ) (x : R) : R :=
+  x ^ ((k + 1) * n) * (x ^ (2 * k + n + 3) - 1) * ∏ i ∈ Finset.range n, (1 - x ^ (k + i + 2))
 
 
 /-- $γ$ and $ψ$ have relation
 
-$$ γ_{N,n} + x^{3N + 5}γ_{N + 1, n} = ψ_{N, n+1} - ψ_{N, n} $$ -/
-theorem ψ_sub_ψ (N n : ℕ) (x : R) :
-    γ N n x + x ^ (3 * N + 5) * γ (N + 1) n x = ψ N (n + 1) x - ψ N n x := by
+$$ γ_{k,n} + x^{3N + 5}γ_{k + 1, n} = ψ_{k, n+1} - ψ_{k, n} $$ -/
+theorem ψ_sub_ψ (k n : ℕ) (x : R) :
+    γ k n x + x ^ (3 * k + 5) * γ (k + 1) n x = ψ k (n + 1) x - ψ k n x := by
   unfold ψ
   rw [Finset.prod_range_succ]
   unfold γ
@@ -79,35 +79,35 @@ theorem ψ_sub_ψ (N n : ℕ) (x : R) :
 
 /-- By summing with telescoping, we get a recurrence formlua for $Γ$
 
-$$ Γ_{N} = 1 - x^{2N + 3} - x^{3N + 5}Γ_{N + 1} $$
+$$ Γ_{k} = 1 - x^{2N + 3} - x^{3N + 5}Γ_{k + 1} $$
 -/
 theorem γ_rec [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
-    (N : ℕ) {x : R} (hx : IsTopologicallyNilpotent x) (hγ : ∀ N, Summable (γ N · x))
-    (h : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1))) :
-    ∑' n, γ N n x = 1 - x ^ (2 * N + 3) - x ^ (3 * N + 5) * ∑' n, γ (N + 1) n x := by
+    (k : ℕ) {x : R} (hx : IsTopologicallyNilpotent x) (hγ : ∀ k, Summable (γ k · x))
+    (h : ∀ k, Multipliable (fun n ↦ 1 - x ^ (n + k + 1))) :
+    ∑' n, γ k n x = 1 - x ^ (2 * k + 3) - x ^ (3 * k + 5) * ∑' n, γ (k + 1) n x := by
   rw [eq_sub_iff_add_eq]
-  rw [show 1 - x ^ (2 * N + 3) = 0 - ψ N 0 x by simp [ψ]]
+  rw [show 1 - x ^ (2 * k + 3) = 0 - ψ k 0 x by simp [ψ]]
   rw [← (hγ _).tsum_mul_left]
   rw [← (hγ _).tsum_add ((hγ _).mul_left _)]
   apply HasSum.tsum_eq
   rw [((hγ _).add ((hγ _).mul_left _)).hasSum_iff_tendsto_nat]
-  simp_rw [ψ_sub_ψ, Finset.sum_range_sub (ψ N · x)]
+  simp_rw [ψ_sub_ψ, Finset.sum_range_sub (ψ k · x)]
   apply Tendsto.sub_const
   unfold ψ
-  rw [show nhds 0 = nhds (0 * (0 - 1) * ∏' i, (1 - x ^ (N + i + 2))) by simp]
+  rw [show nhds 0 = nhds (0 * (0 - 1) * ∏' i, (1 - x ^ (k + i + 2))) by simp]
   refine (Tendsto.mul ?_ ?_).mul ?_
   · exact hx.comp (strictMono_mul_left_of_pos (by simp)).tendsto_atTop
   · refine Tendsto.sub_const (hx.comp (StrictMono.tendsto_atTop ?_)) _
     exact add_right_strictMono.add_monotone monotone_const
   · apply Multipliable.tendsto_prod_tprod_nat
-    convert h (N + 1) using 4
+    convert h (k + 1) using 4
     ring
 
 /-- The Euler function is related to $Γ$ by
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} = 1 - x - x^2 Γ_0 $$ -/
 theorem pentagonalLhs_γ0 [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] {x : R}
-    (hγ : ∀ N, Summable (γ N · x)) (h : ∀ N, Multipliable fun n ↦ 1 - x ^ (n + N + 1)) :
+    (hγ : ∀ k, Summable (γ k · x)) (h : ∀ k, Multipliable fun n ↦ 1 - x ^ (n + k + 1)) :
     ∏' n, (1 - x ^ (n + 1)) = 1 - x - x ^ 2 * ∑' n, γ 0 n x := by
   obtain hsum := hγ 0
   unfold γ at hsum
@@ -130,16 +130,16 @@ theorem pentagonalLhs_γ0 [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
 /-- Applying the recurrence formula repeatedly, we get
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
-\left(\sum_{k=0}^{N} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) \right) +
-(-1)^{N+1}x^{(N+1)(3N + 4)/2}Γ_N $$ -/
-theorem pentagonalLhs_γ [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] (N : ℕ) {x : R}
+\left(\sum_{k=0}^{k} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) \right) +
+(-1)^{k+1}x^{(k+1)(3N + 4)/2}Γ_N $$ -/
+theorem pentagonalLhs_γ [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] (k : ℕ) {x : R}
     (hx : IsTopologicallyNilpotent x)
-    (hγ : ∀ N, Summable (γ N · x)) (h : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1)))
+    (hγ : ∀ k, Summable (γ k · x)) (h : ∀ k, Multipliable (fun n ↦ 1 - x ^ (n + k + 1)))
     : ∏' n, (1 - x ^ (n + 1)) =
-    ∑ k ∈ Finset.range (N + 1), (-1) ^ k *
+    ∑ k ∈ Finset.range (k + 1), (-1) ^ k *
       (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2))
-      + (-1) ^ (N + 1) * x ^ ((N + 1) * (3 * N + 4) / 2) * ∑' n, γ N n x := by
-  induction N with
+      + (-1) ^ (k + 1) * x ^ ((k + 1) * (3 * k + 4) / 2) * ∑' n, γ k n x := by
+  induction k with
   | zero => simp [pentagonalLhs_γ0 hγ h, γ, ← sub_eq_add_neg]
   | succ n ih =>
     rw [ih, γ_rec _ hx hγ h , Finset.sum_range_succ _ (n + 1)]
@@ -157,14 +157,14 @@ theorem pentagonalLhs_γ [TopologicalSpace R] [IsTopologicalRing R] [T2Space R] 
 
 end Pentagonal
 
-/-- Taking $N \to \infty$, we get the pentagonal number theorem in the generic form
+/-- Taking $k \to \infty$, we get the pentagonal number theorem in the generic form
 
 $$ \prod_{n = 0}^{\infty} 1 - x^{n + 1} =
 \sum_{k=0}^{\infty} (-1)^k \left(x^{k(3k+1)/2} + x^{(k+1)(3k+2)/2}\right) $$ -/
 theorem pentagonalNumberTheorem_generic [TopologicalSpace R] [IsTopologicalRing R] [T2Space R]
     {x : R} (hx : IsTopologicallyNilpotent x)
-    (hγ : ∀ N, Summable (Pentagonal.γ N · x))
-    (hlhs : ∀ N, Multipliable (fun n ↦ 1 - x ^ (n + N + 1)))
+    (hγ : ∀ k, Summable (Pentagonal.γ k · x))
+    (hlhs : ∀ k, Multipliable (fun n ↦ 1 - x ^ (n + k + 1)))
     (hrhs : Summable fun (k : ℕ) ↦
       (-1) ^ k * (x ^ (k * (3 * k + 1) / 2) - x ^ ((k + 1) * (3 * k + 2) / 2)))
     (htail : Tendsto (fun k ↦ (-1) ^ (k + 1) * x ^ ((k + 1) * (3 * k + 4) / 2) *

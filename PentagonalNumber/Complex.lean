@@ -15,12 +15,12 @@ variable {K : Type*} [RCLike K]
 
 namespace Pentagonal
 
-theorem γ_bound (N n : ℕ) {x : K} (hx : ‖x‖ < 1) :
-    ‖γ N n x‖ ≤ ‖x‖ ^ ((N + 1) * n) * ∏' i, (1 + ‖x‖ ^ i) := by
+theorem γ_bound (k n : ℕ) {x : K} (hx : ‖x‖ < 1) :
+    ‖γ k n x‖ ≤ ‖x‖ ^ ((k + 1) * n) * ∏' i, (1 + ‖x‖ ^ i) := by
   unfold γ
   rw [norm_mul, norm_prod, norm_pow]
   refine mul_le_mul_of_nonneg_left ?_ (by simp)
-  trans ∏ i ∈ Finset.Ico (N + 1) (n + 1 + (N + 1)), (1 + ‖x‖ ^ i)
+  trans ∏ i ∈ Finset.Ico (k + 1) (n + 1 + (k + 1)), (1 + ‖x‖ ^ i)
   · rw [Finset.prod_Ico_eq_prod_range, Nat.add_sub_cancel]
     apply Finset.prod_le_prod (by simp) fun _ _ ↦ (norm_sub_le _ _).trans_eq ?_
     rw [norm_one, norm_pow]
@@ -28,32 +28,32 @@ theorem γ_bound (N n : ℕ) {x : K} (hx : ‖x‖ < 1) :
   have : Multipliable (1 + ‖x‖ ^ ·) := multipliable_one_add_of_summable (by simpa using hx)
   apply ge_of_tendsto (this.tendsto_prod_tprod_nat)
   rw [eventually_atTop]
-  refine ⟨n + 1 + (N + 1), fun a ha ↦ ?_⟩
-  have : Finset.Ico (N + 1) (n + 1 + (N + 1)) ⊆ Finset.range a := by
+  refine ⟨n + 1 + (k + 1), fun a ha ↦ ?_⟩
+  have : Finset.Ico (k + 1) (n + 1 + (k + 1)) ⊆ Finset.range a := by
     rw [Finset.range_eq_Ico]
     exact Finset.Ico_subset_Ico (by simp) ha
   rw [← Finset.prod_sdiff this]
   apply le_mul_of_one_le_left (Finset.prod_nonneg (fun _ _ ↦ by trans 1 <;> simp))
-  generalize Finset.range a \ Finset.Ico (N + 1) (n + 1 + (N + 1)) = s
+  generalize Finset.range a \ Finset.Ico (k + 1) (n + 1 + (k + 1)) = s
   induction s using Finset.cons_induction with
   | empty => simp
   | cons a s h ih =>
     rw [Finset.prod_cons]
     exact one_le_mul_of_one_le_of_one_le (by simp) ih
 
-theorem summable_γ_complex (N : ℕ) {x : K} (hx : ‖x‖ < 1) : Summable (γ N · x) := by
+theorem summable_γ_complex (k : ℕ) {x : K} (hx : ‖x‖ < 1) : Summable (γ k · x) := by
   rw [← summable_norm_iff]
-  refine Summable.of_nonneg_of_le (by simp) (γ_bound N · hx) <| Summable.mul_right _ ?_
+  refine Summable.of_nonneg_of_le (by simp) (γ_bound k · hx) <| Summable.mul_right _ ?_
   simp_rw [pow_mul]
   apply summable_geometric_of_lt_one (by simp)
   exact (pow_lt_one_iff_of_nonneg (by simp) (by simp)).mpr hx
 
-theorem tsum_γ_bound (N : ℕ) {x : K} (hx : ‖x‖ < 1) :
-    ‖∑' n, γ N n x‖ ≤ (1 - ‖x‖)⁻¹ * ∏' i, (1 + ‖x‖ ^ i) := by
-  obtain hsum := (summable_γ_complex N hx).norm
-  have hx' : ‖x‖ ^ (N + 1) < 1 := (pow_lt_one_iff_of_nonneg (by simp) (by simp)).mpr hx
+theorem tsum_γ_bound (k : ℕ) {x : K} (hx : ‖x‖ < 1) :
+    ‖∑' n, γ k n x‖ ≤ (1 - ‖x‖)⁻¹ * ∏' i, (1 + ‖x‖ ^ i) := by
+  obtain hsum := (summable_γ_complex k hx).norm
+  have hx' : ‖x‖ ^ (k + 1) < 1 := (pow_lt_one_iff_of_nonneg (by simp) (by simp)).mpr hx
   apply (norm_tsum_le_tsum_norm hsum).trans
-  refine (Summable.tsum_le_tsum (γ_bound N · hx) hsum ?_).trans ?_
+  refine (Summable.tsum_le_tsum (γ_bound k · hx) hsum ?_).trans ?_
   · simp_rw [pow_mul]
     exact Summable.mul_right _ <| summable_geometric_of_lt_one (by simp) hx'
   rw [tsum_mul_right]
@@ -68,8 +68,8 @@ theorem tsum_γ_bound (N : ℕ) {x : K} (hx : ‖x‖ < 1) :
     Real.summable_log_one_add_of_summable <| by simpa using hx)]
   apply Real.exp_nonneg
 
-theorem multipliable_pentagonalLhs_complex' (N : ℕ) {x : K} (hx : ‖x‖ < 1) :
-    Multipliable (fun n ↦ 1 - x ^ (n + N + 1)) := by
+theorem multipliable_pentagonalLhs_complex' (k : ℕ) {x : K} (hx : ‖x‖ < 1) :
+    Multipliable (fun n ↦ 1 - x ^ (n + k + 1)) := by
   simp_rw [sub_eq_add_neg]
   apply multipliable_one_add_of_summable
   simp_rw [norm_neg, norm_pow, pow_add]
@@ -120,7 +120,7 @@ theorem pentagonalNumberTheorem_complex {x : K} (hx : ‖x‖ < 1) :
       exact Nat.mul_le_mul (by simp) (by simp)
     · use (1 - ‖x‖)⁻¹ * ∏' i, (1 + ‖x‖ ^ i)
       simp_rw [eventually_map, Function.comp_apply, eventually_atTop]
-      exact ⟨0, fun N _ ↦ tsum_γ_bound N hx⟩
+      exact ⟨0, fun k _ ↦ tsum_γ_bound k hx⟩
 
 theorem summable_pentagonalRhs_intNeg_complex {x : K} (hx : ‖x‖ < 1) :
     Summable (fun (k : ℤ) ↦ (-1) ^ k * x ^ (k * (3 * k + 1) / 2)) := by
